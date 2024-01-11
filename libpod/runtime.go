@@ -498,9 +498,12 @@ func makeRuntime(runtime *Runtime) (retErr error) {
 		}
 
 		runtime.ociRuntimes[name] = ociRuntime
+		fmt.Printf("DDD: OCI runtime[%v] = %+v\n", name, ociRuntime)
 	}
 
+
 	// Do we have a default OCI runtime?
+	fmt.Printf("DDD: Runtime config %+v\n", runtime.config)
 	if runtime.config.Engine.OCIRuntime != "" {
 		// If the string starts with / it's a path to a runtime
 		// executable.

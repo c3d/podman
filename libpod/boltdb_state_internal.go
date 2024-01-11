@@ -493,6 +493,8 @@ func (s *BoltState) getContainerFromDB(id []byte, ctr *Container, ctrsBkt *bolt.
 	} else {
 		// Handle legacy containers which might use a literal path for
 		// their OCI runtime name.
+		fmt.Printf("DDD: Container config is %v\n", ctr.config)
+		fmt.Printf("DDD: Available runtimes is %v\n", s.runtime.ociRuntimes)
 		runtimeName := ctr.config.OCIRuntime
 		ociRuntime, ok := s.runtime.ociRuntimes[runtimeName]
 		if !ok {

@@ -424,7 +424,7 @@ func (r *ConmonOCIRuntime) startExec(c *Container, sessionID string, options *Ex
 
 	logrus.WithFields(logrus.Fields{
 		"args": args,
-	}).Debugf("running conmon: %s", r.conmonPath)
+	}).Debugf("DDD2: running conmon: %s", r.conmonPath)
 	execCmd := exec.Command(r.conmonPath, args...)
 
 	// TODO: This is commented because it doesn't make much sense in HTTP

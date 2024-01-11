@@ -1204,7 +1204,7 @@ func (r *ConmonOCIRuntime) createOCIContainer(ctr *Container, restoreOptions *Co
 
 	logrus.WithFields(logrus.Fields{
 		"args": args,
-	}).Debugf("running conmon: %s", r.conmonPath)
+	}).Debugf("DDD1: running conmon: %s", r.conmonPath)
 
 	cmd := exec.Command(r.conmonPath, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
