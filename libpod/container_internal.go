@@ -626,7 +626,7 @@ func (c *Container) teardownStorage() error {
 // It does not save the results - assumes the database will do that for us.
 func resetContainerState(state *ContainerState) {
 	state.PID = 0
-	state.ConmonPID = 0
+	state.ShimPID = 0
 	state.Mountpoint = ""
 	state.Mounted = false
 	// Reset state.
@@ -780,6 +780,12 @@ func (c *Container) removeConmonFiles() error {
 	}
 
 	return nil
+}
+
+// Remove shimv2 attach socket and terminal resize FIFO
+// This is necessary for restarting containers
+func (c *Container) removeShimV2Files() error {
+	return c.removeConmonFiles()
 }
 
 func (c *Container) export(out io.Writer) error {
@@ -1269,7 +1275,7 @@ func (c *Container) start(ctx context.Context) error {
 
 	// Unless being ignored, set the MAINPID to conmon.
 	if c.config.SdNotifyMode != define.SdNotifyModeIgnore {
-		payload := fmt.Sprintf("MAINPID=%d", c.state.ConmonPID)
+		payload := fmt.Sprintf("MAINPID=%d", c.state.ShimPID)
 		if c.config.SdNotifyMode == define.SdNotifyModeConmon {
 			// Also send the READY message for the "conmon" policy.
 			payload += "\n"
@@ -1510,7 +1516,7 @@ func (c *Container) restartWithTimeout(ctx context.Context, timeout uint) (retEr
 	c.newContainerEvent(events.Restart)
 
 	if c.state.State == define.ContainerStateRunning {
-		conmonPID := c.state.ConmonPID
+		conmonPID := c.state.ShimPID
 		if err := c.stop(timeout); err != nil {
 			return err
 		}
@@ -2464,7 +2470,7 @@ func (c *Container) checkExitFile() error {
 	// Alright, it exists. Transition to Stopped state.
 	c.state.State = define.ContainerStateStopped
 	c.state.PID = 0
-	c.state.ConmonPID = 0
+	c.state.ShimPID = 0
 
 	// Read the exit file to get our stopped time and exit code.
 	return c.handleExitFile(exitFile, info)

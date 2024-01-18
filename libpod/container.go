@@ -164,8 +164,8 @@ type ContainerState struct {
 	Checkpointed bool `json:"checkpointed,omitempty"`
 	// PID is the PID of a running container
 	PID int `json:"pid,omitempty"`
-	// ConmonPID is the PID of the container's conmon
-	ConmonPID int `json:"conmonPid,omitempty"`
+	// ShimPID is the PID of the container's conmon or shimv2
+	ShimPID int `json:"shimPid,omitempty"`
 	// ExecSessions contains all exec sessions that are associated with this
 	// container.
 	ExecSessions map[string]*ExecSession `json:"newExecSessions,omitempty"`
@@ -866,7 +866,7 @@ func (c *Container) ConmonPID() (int, error) {
 		}
 	}
 
-	return c.state.ConmonPID, nil
+	return c.state.ShimPID, nil
 }
 
 // ExecSessions retrieves active exec sessions running in the container

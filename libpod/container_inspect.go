@@ -130,7 +130,7 @@ func (c *Container) getContainerInspectData(size bool, driverData *define.Driver
 			OOMKilled:      runtimeInfo.OOMKilled,
 			Dead:           runtimeInfo.State.String() == "bad state",
 			Pid:            runtimeInfo.PID,
-			ConmonPid:      runtimeInfo.ConmonPID,
+			ConmonPid:      runtimeInfo.ShimPID,
 			ExitCode:       runtimeInfo.ExitCode,
 			Error:          runtimeInfo.Error,
 			StartedAt:      runtimeInfo.StartedTime,

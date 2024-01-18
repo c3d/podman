@@ -148,28 +148,14 @@ func newShimV2OCIRuntime(name string, paths []string, runtimeFlags []string, run
 	return runtime, nil
 }
 
-// Name returns the name of the runtime being wrapped by ShimV2.
+// Name returns the name of the ShimV2 runtime
 func (r *ShimV2OCIRuntime) Name() string {
 	return r.name
 }
 
-// Path returns the path of the OCI runtime being wrapped by ShimV2.
+// Path returns the path of the ShimV2 runtime binary
 func (r *ShimV2OCIRuntime) Path() string {
 	return r.path
-}
-
-// hasCurrentUserMapped checks whether the current user is mapped inside the container user namespace
-func hasCurrentUserMapped(ctr *Container) bool {
-	if len(ctr.config.IDMappings.UIDMap) == 0 && len(ctr.config.IDMappings.GIDMap) == 0 {
-		return true
-	}
-	uid := os.Geteuid()
-	for _, m := range ctr.config.IDMappings.UIDMap {
-		if uid >= m.HostID && uid < m.HostID+m.Size {
-			return true
-		}
-	}
-	return false
 }
 
 // CreateContainer creates a container.
@@ -319,30 +305,6 @@ func (r *ShimV2OCIRuntime) UpdateContainer(ctr *Container, resources *spec.Linux
 
 	args = append(args, additionalArgs...)
 	return utils.ExecCmdWithStdStreams(os.Stdin, os.Stdout, os.Stderr, env, r.path, append(args, ctr.ID())...)
-}
-
-func generateResourceFile(res *spec.LinuxResources) (string, []string, error) {
-	flags := []string{}
-	if res == nil {
-		return "", flags, nil
-	}
-
-	f, err := os.CreateTemp("", "podman")
-	if err != nil {
-		return "", nil, err
-	}
-
-	j, err := json.Marshal(res)
-	if err != nil {
-		return "", nil, err
-	}
-	_, err = f.Write(j)
-	if err != nil {
-		return "", nil, err
-	}
-
-	flags = append(flags, "--resources="+f.Name())
-	return f.Name(), flags, nil
 }
 
 // KillContainer sends the given signal to the given container.
@@ -522,16 +484,6 @@ func (r *ShimV2OCIRuntime) UnpauseContainer(ctr *Container) error {
 	}
 	env := []string{fmt.Sprintf("XDG_RUNTIME_DIR=%s", runtimeDir)}
 	return utils.ExecCmdWithStdStreams(os.Stdin, os.Stdout, os.Stderr, env, r.path, append(r.runtimeFlags, "resume", ctr.ID())...)
-}
-
-// This filters out ENOTCONN errors which can happen on FreeBSD if the
-// other side of the connection is already closed.
-func socketCloseWrite(conn *net.UnixConn) error {
-	err := conn.CloseWrite()
-	if err != nil && errors.Is(err, syscall.ENOTCONN) {
-		return nil
-	}
-	return err
 }
 
 // HTTPAttach performs an attach for the HTTP API.
@@ -756,32 +708,6 @@ func (r *ShimV2OCIRuntime) HTTPAttach(ctr *Container, req *http.Request, w http.
 	}
 }
 
-// isRetryable returns whether the error was caused by a blocked syscall or the
-// specified operation on a non blocking file descriptor wasn't ready for completion.
-func isRetryable(err error) bool {
-	var errno syscall.Errno
-	if errors.As(err, &errno) {
-		return errno == syscall.EINTR || errno == syscall.EAGAIN
-	}
-	return false
-}
-
-// openControlFile opens the terminal control file.
-func openControlFile(ctr *Container, parentDir string) (*os.File, error) {
-	controlPath := filepath.Join(parentDir, "ctl")
-	for i := 0; i < 600; i++ {
-		controlFile, err := os.OpenFile(controlPath, unix.O_WRONLY|unix.O_NONBLOCK, 0)
-		if err == nil {
-			return controlFile, nil
-		}
-		if !isRetryable(err) {
-			return nil, fmt.Errorf("could not open ctl file for terminal resize for container %s: %w", ctr.ID(), err)
-		}
-		time.Sleep(time.Second / 10)
-	}
-	return nil, fmt.Errorf("timeout waiting for %q", controlPath)
-}
-
 // AttachResize resizes the terminal used by the given container.
 func (r *ShimV2OCIRuntime) AttachResize(ctr *Container, newSize resize.TerminalSize) error {
 	controlFile, err := openControlFile(ctr, ctr.bundlePath())
@@ -961,53 +887,6 @@ func (r *ShimV2OCIRuntime) RuntimeInfo() (*define.ShimV2Info, *define.OCIRuntime
 	return &shimV2, &ocirt, nil
 }
 
-// makeAccessible changes the path permission and each parent directory to have --x--x--x
-func makeAccessible(path string, uid, gid int) error {
-	for ; path != "/"; path = filepath.Dir(path) {
-		st, err := os.Stat(path)
-		if err != nil {
-			if os.IsNotExist(err) {
-				return nil
-			}
-			return err
-		}
-		if int(st.Sys().(*syscall.Stat_t).Uid) == uid && int(st.Sys().(*syscall.Stat_t).Gid) == gid {
-			continue
-		}
-		if st.Mode()&0111 != 0111 {
-			if err := os.Chmod(path, st.Mode()|0111); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-// Wait for a container which has been sent a signal to stop
-func waitContainerStop(ctr *Container, timeout time.Duration) error {
-	return waitPidStop(ctr.state.PID, timeout)
-}
-
-// Wait for a given PID to stop
-func waitPidStop(pid int, timeout time.Duration) error {
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
-	for {
-		select {
-		case <-timer.C:
-			return fmt.Errorf("given PID did not die within timeout")
-		default:
-			if err := unix.Kill(pid, 0); err != nil {
-				if err == unix.ESRCH {
-					return nil
-				}
-				logrus.Errorf("Pinging PID %d with signal 0: %v", pid, err)
-			}
-			time.Sleep(10 * time.Millisecond)
-		}
-	}
-}
-
 func (r *ShimV2OCIRuntime) getLogTag(ctr *Container) (string, error) {
 	logTag := ctr.LogTag()
 	if logTag == "" {
@@ -1028,39 +907,6 @@ func (r *ShimV2OCIRuntime) getLogTag(ctr *Container) (string, error) {
 		return "", err
 	}
 	return b.String(), nil
-}
-
-func getPreserveFdExtraFiles(preserveFD []uint, preserveFDs uint) (uint, []*os.File, []*os.File, error) {
-	var filesToClose []*os.File
-	var extraFiles []*os.File
-
-	preserveFDsMap := make(map[uint]struct{})
-	for _, i := range preserveFD {
-		if i < 3 {
-			return 0, nil, nil, fmt.Errorf("cannot preserve FD %d, consider using the passthrough log-driver to pass STDIO streams into the container: %w", i, define.ErrInvalidArg)
-		}
-		if i-2 > preserveFDs {
-			// preserveFDs is the number of FDs above 2 to keep around.
-			// e.g. if the user specified FD=3, then preserveFDs must be 1.
-			preserveFDs = i - 2
-		}
-		preserveFDsMap[i] = struct{}{}
-	}
-
-	if preserveFDs > 0 {
-		for fd := 3; fd < int(3+preserveFDs); fd++ {
-			if len(preserveFDsMap) > 0 {
-				if _, ok := preserveFDsMap[uint(fd)]; !ok {
-					extraFiles = append(extraFiles, nil)
-					continue
-				}
-			}
-			f := os.NewFile(uintptr(fd), fmt.Sprintf("fd-%d", fd))
-			filesToClose = append(filesToClose, f)
-			extraFiles = append(extraFiles, f)
-		}
-	}
-	return preserveFDs, filesToClose, extraFiles, nil
 }
 
 // createOCIContainer generates this container's main shimV2 instance and prepares it for starting
@@ -1433,16 +1279,6 @@ func (r *ShimV2OCIRuntime) sharedShimV2Args(ctr *Container, cuuid, bundlePath, p
 	return args
 }
 
-// newPipe creates a unix socket pair for communication.
-// Returns two files - first is parent, second is child.
-func newPipe() (*os.File, *os.File, error) {
-	fds, err := unix.Socketpair(unix.AF_LOCAL, unix.SOCK_SEQPACKET|unix.SOCK_CLOEXEC, 0)
-	if err != nil {
-		return nil, nil, err
-	}
-	return os.NewFile(uintptr(fds[1]), "parent"), os.NewFile(uintptr(fds[0]), "child"), nil
-}
-
 // readShimV2PidFile attempts to read shimV2's pid from its pid file
 func readShimV2PidFile(pidFile string) (int, error) {
 	// Let's try reading the ShimV2 pid at the same time.
@@ -1537,15 +1373,6 @@ func writeShimV2PipeData(pipe *os.File) error {
 	return err
 }
 
-// formatRuntimeOpts prepends opts passed to it with --runtime-opt for passing to shimV2
-func formatRuntimeOpts(opts ...string) []string {
-	args := make([]string, 0, len(opts)*2)
-	for _, o := range opts {
-		args = append(args, "--runtime-opt", o)
-	}
-	return args
-}
-
 // getShimV2Version returns a string representation of the shimV2 version.
 func (r *ShimV2OCIRuntime) getShimV2Version() (string, error) {
 	output, err := utils.ExecCmd(r.shimV2Path, "--version")
@@ -1563,137 +1390,4 @@ func (r *ShimV2OCIRuntime) getOCIRuntimeVersion() (string, error) {
 		return "", err
 	}
 	return strings.TrimSuffix(output, "\n"), nil
-}
-
-// Copy data from container to HTTP connection, for terminal attach.
-// Container is the container's attach socket connection, http is a buffer for
-// the HTTP connection. cid is the ID of the container the attach session is
-// running for (used solely for error messages).
-func httpAttachTerminalCopy(container *net.UnixConn, http *bufio.ReadWriter, cid string) error {
-	buf := make([]byte, bufferSize)
-	for {
-		numR, err := container.Read(buf)
-		logrus.Debugf("Read fd(%d) %d/%d bytes for container %s", int(buf[0]), numR, len(buf), cid)
-
-		if numR > 0 {
-			switch buf[0] {
-			case AttachPipeStdout:
-				// Do nothing
-			default:
-				logrus.Errorf("Received unexpected attach type %+d, discarding %d bytes", buf[0], numR)
-				continue
-			}
-
-			numW, err2 := http.Write(buf[1:numR])
-			if err2 != nil {
-				if err != nil {
-					logrus.Errorf("Reading container %s STDOUT: %v", cid, err)
-				}
-				return err2
-			} else if numW+1 != numR {
-				return io.ErrShortWrite
-			}
-			// We need to force the buffer to write immediately, so
-			// there isn't a delay on the terminal side.
-			if err2 := http.Flush(); err2 != nil {
-				if err != nil {
-					logrus.Errorf("Reading container %s STDOUT: %v", cid, err)
-				}
-				return err2
-			}
-		}
-		if err != nil {
-			if err == io.EOF {
-				return nil
-			}
-			return err
-		}
-	}
-}
-
-// Copy data from a container to an HTTP connection, for non-terminal attach.
-// Appends a header to multiplex input.
-func httpAttachNonTerminalCopy(container *net.UnixConn, http *bufio.ReadWriter, cid string, stdin, stdout, stderr bool) error {
-	buf := make([]byte, bufferSize)
-	for {
-		numR, err := container.Read(buf)
-		if numR > 0 {
-			var headerBuf []byte
-
-			// Subtract 1 because we strip the first byte (used for
-			// multiplexing by ShimV2).
-			headerLen := uint32(numR - 1)
-			// Practically speaking, we could make this buf[0] - 1,
-			// but we need to validate it anyway.
-			switch buf[0] {
-			case AttachPipeStdin:
-				headerBuf = makeHTTPAttachHeader(0, headerLen)
-				if !stdin {
-					continue
-				}
-			case AttachPipeStdout:
-				if !stdout {
-					continue
-				}
-				headerBuf = makeHTTPAttachHeader(1, headerLen)
-			case AttachPipeStderr:
-				if !stderr {
-					continue
-				}
-				headerBuf = makeHTTPAttachHeader(2, headerLen)
-			default:
-				logrus.Errorf("Received unexpected attach type %+d, discarding %d bytes", buf[0], numR)
-				continue
-			}
-
-			numH, err2 := http.Write(headerBuf)
-			if err2 != nil {
-				if err != nil {
-					logrus.Errorf("Reading container %s standard streams: %v", cid, err)
-				}
-
-				return err2
-			}
-			// Hardcoding header length is pretty gross, but
-			// fast. Should be safe, as this is a fixed part
-			// of the protocol.
-			if numH != 8 {
-				if err != nil {
-					logrus.Errorf("Reading container %s standard streams: %v", cid, err)
-				}
-
-				return io.ErrShortWrite
-			}
-
-			numW, err2 := http.Write(buf[1:numR])
-			if err2 != nil {
-				if err != nil {
-					logrus.Errorf("Reading container %s standard streams: %v", cid, err)
-				}
-
-				return err2
-			} else if numW+1 != numR {
-				if err != nil {
-					logrus.Errorf("Reading container %s standard streams: %v", cid, err)
-				}
-
-				return io.ErrShortWrite
-			}
-			// We need to force the buffer to write immediately, so
-			// there isn't a delay on the terminal side.
-			if err2 := http.Flush(); err2 != nil {
-				if err != nil {
-					logrus.Errorf("Reading container %s STDOUT: %v", cid, err)
-				}
-				return err2
-			}
-		}
-		if err != nil {
-			if err == io.EOF {
-				return nil
-			}
-
-			return err
-		}
-	}
 }
