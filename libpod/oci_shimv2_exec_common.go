@@ -296,31 +296,6 @@ func (r *ShimV2OCIRuntime) ExecAttachSocketPath(ctr *Container, sessionID string
 	return filepath.Join(ctr.execBundlePath(sessionID), "attach"), nil
 }
 
-// This contains pipes used by the exec API.
-type execPipes struct {
-	syncPipe     *os.File
-	syncClosed   bool
-	startPipe    *os.File
-	startClosed  bool
-	attachPipe   *os.File
-	attachClosed bool
-}
-
-func (p *execPipes) cleanup() {
-	if p.syncPipe != nil && !p.syncClosed {
-		errorhandling.CloseQuiet(p.syncPipe)
-		p.syncClosed = true
-	}
-	if p.startPipe != nil && !p.startClosed {
-		errorhandling.CloseQuiet(p.startPipe)
-		p.startClosed = true
-	}
-	if p.attachPipe != nil && !p.attachClosed {
-		errorhandling.CloseQuiet(p.attachPipe)
-		p.attachClosed = true
-	}
-}
-
 // Start an exec session's shimV2 parent from the given options.
 func (r *ShimV2OCIRuntime) startExec(c *Container, sessionID string, options *ExecOptions, attachStdin bool, ociLog string) (_ *exec.Cmd, _ *execPipes, deferredErr error) {
 	pipes := new(execPipes)
