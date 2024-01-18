@@ -94,9 +94,9 @@ func (r *Runtime) Migrate(newRuntime string) error {
 
 		// Reset pause process location
 		oldLocation := filepath.Join(ctr.state.RunDir, "conmon.pid")
-		if ctr.config.ConmonPidFile == oldLocation {
+		if ctr.config.ShimPidFile == oldLocation {
 			logrus.Infof("Changing conmon PID file for %s", ctr.ID())
-			ctr.config.ConmonPidFile = filepath.Join(ctr.config.StaticDir, "conmon.pid")
+			ctr.config.ShimPidFile = filepath.Join(ctr.config.StaticDir, "conmon.pid")
 			needsWrite = true
 		}
 

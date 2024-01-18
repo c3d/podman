@@ -1247,7 +1247,7 @@ func WithConmonPidFile(path string) CtrCreateOption {
 		if ctr.valid {
 			return define.ErrCtrFinalized
 		}
-		ctr.config.ConmonPidFile = path
+		ctr.config.ShimPidFile = path
 		return nil
 	}
 }

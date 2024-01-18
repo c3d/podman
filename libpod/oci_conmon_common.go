@@ -983,8 +983,8 @@ func (r *ConmonOCIRuntime) createOCIContainer(ctr *Container, restoreOptions *Co
 	if !r.enableKeyring {
 		args = append(args, "--no-new-keyring")
 	}
-	if ctr.config.ConmonPidFile != "" {
-		args = append(args, "--conmon-pidfile", ctr.config.ConmonPidFile)
+	if ctr.config.ShimPidFile != "" {
+		args = append(args, "--conmon-pidfile", ctr.config.ShimPidFile)
 	}
 
 	if r.noPivot {
@@ -1169,7 +1169,7 @@ func (r *ConmonOCIRuntime) createOCIContainer(ctr *Container, restoreOptions *Co
 	}
 	ctr.state.PID = pid
 
-	conmonPID, err := readConmonPidFile(ctr.config.ConmonPidFile)
+	conmonPID, err := readConmonPidFile(ctr.config.ShimPidFile)
 	if err != nil {
 		logrus.Warnf("Error reading conmon pid file for container %s: %v", ctr.ID(), err)
 	} else if conmonPID > 0 {
