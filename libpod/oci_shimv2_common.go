@@ -1138,7 +1138,7 @@ func (r *ShimV2OCIRuntime) createOCIContainer(ctr *Container, restoreOptions *Co
 		return 0, fmt.Errorf("shimV2 failed: %w", err)
 	}
 
-	pid, err := readShimV2PipeData(r.name, parentSyncPipe, ociLog)
+	pid, err := readShimPipeData(r.name, parentSyncPipe, ociLog)
 	if err != nil {
 		if err2 := r.DeleteContainer(ctr); err2 != nil {
 			logrus.Errorf("Removing container %s from runtime after creation failed", ctr.ID())
@@ -1292,8 +1292,8 @@ func readShimV2PidFile(pidFile string) (int, error) {
 	return 0, nil
 }
 
-// readShimV2PipeData attempts to read a syncInfo struct from the pipe
-func readShimV2PipeData(runtimeName string, pipe *os.File, ociLog string) (int, error) {
+// readShimPipeData attempts to read a syncInfo struct from the pipe
+func readShimPipeData(runtimeName string, pipe *os.File, ociLog string) (int, error) {
 	// syncInfo is used to return data from monitor process to daemon
 	type syncInfo struct {
 		Data    int    `json:"data"`
@@ -1361,8 +1361,8 @@ func readShimV2PipeData(runtimeName string, pipe *os.File, ociLog string) (int, 
 	return data, nil
 }
 
-// writeShimV2PipeData writes nonce data to a pipe
-func writeShimV2PipeData(pipe *os.File) error {
+// writeShimPipeData writes nonce data to a pipe
+func writeShimPipeData(pipe *os.File) error {
 	someData := []byte{0}
 	_, err := pipe.Write(someData)
 	return err

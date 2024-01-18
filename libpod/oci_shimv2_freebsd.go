@@ -22,7 +22,7 @@ func (r *ShimV2OCIRuntime) withContainerSocketLabel(ctr *Container, closure func
 // it then signals for shimV2 to start by sending nonce data down the start fd
 func (r *ShimV2OCIRuntime) moveShimV2ToCgroupAndSignal(ctr *Container, cmd *exec.Cmd, startFd *os.File) error {
 	// No equivalent to cgroup on FreeBSD, just signal shimV2 to start
-	if err := writeShimV2PipeData(startFd); err != nil {
+	if err := writeShimPipeData(startFd); err != nil {
 		return err
 	}
 	return nil
