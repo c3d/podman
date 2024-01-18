@@ -26,34 +26,28 @@ import (
 	"github.com/containers/common/pkg/resize"
 	"github.com/containers/common/pkg/version"
 	conmonConfig "github.com/containers/conmon/runner/config"
-	"github.com/containers/podman/v5/libpod/define"
-	"github.com/containers/podman/v5/libpod/logs"
-	"github.com/containers/podman/v5/pkg/checkpoint/crutils"
-	"github.com/containers/podman/v5/pkg/errorhandling"
-	"github.com/containers/podman/v5/pkg/rootless"
-	"github.com/containers/podman/v5/pkg/specgenutil"
-	"github.com/containers/podman/v5/pkg/util"
-	"github.com/containers/podman/v5/utils"
+	"github.com/containers/podman/v4/libpod/define"
+	"github.com/containers/podman/v4/libpod/logs"
+	"github.com/containers/podman/v4/pkg/checkpoint/crutils"
+	"github.com/containers/podman/v4/pkg/errorhandling"
+	"github.com/containers/podman/v4/pkg/rootless"
+	"github.com/containers/podman/v4/pkg/specgenutil"
+	"github.com/containers/podman/v4/pkg/util"
+	"github.com/containers/podman/v4/utils"
 	spec "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
-const (
-	// This is Conmon's STDIO_BUF_SIZE. I don't believe we have access to it
-	// directly from the Go code, so const it here
-	// Important: The conmon attach socket uses an extra byte at the beginning of each
-	// message to specify the STREAM so we have to increase the buffer size by one
-	bufferSize = conmonConfig.BufSize + 1
-)
+// ShimV2OCIRuntime is an OCI runtime managed through the shimV2 interface,
+// like Kata Containers.
+// See https://github.com/containerd/containerd/blob/main/runtime/v2/README.md
 
-// ConmonOCIRuntime is an OCI runtime managed by Conmon.
-// TODO: Make all calls to OCI runtime have a timeout.
-type ConmonOCIRuntime struct {
+type ShimV2OCIRuntime struct {
 	name              string
 	path              string
-	conmonPath        string
-	conmonEnv         []string
+	socketPath        string
+	shimV2Env         []string
 	tmpDir            string
 	exitsDir          string
 	logSizeMax        int64
@@ -64,16 +58,20 @@ type ConmonOCIRuntime struct {
 	supportsKVM       bool
 	supportsNoCgroups bool
 	enableKeyring     bool
-	persistDir        string
 }
 
-// Make a new Conmon-OCI runtime with the given options.
-// Conmon will wrap the given OCI runtime, which can be `runc`, `crun`, or
-// any runtime with a runc-compatible CLI.
+
+
+// Make a new ShimV2-OCI runtime with the given options.
+// The shimv2 interface will launche a _persistent_ process that acts as a shim,
+// like the containerd-shim-kata-v2, which does not obey the runc-style
+// command-line interface, but instead communicates over a socket.
+// This requires podman to fork a process that stays alive in the background
+// and acts as a containerd-compatible server for the ShimV2 RPC calls.
 // The first path that points to a valid executable will be used.
 // Deliberately private. Someone should not be able to construct this outside of
 // libpod.
-func newConmonOCIRuntime(name string, paths []string, conmonPath string, runtimeFlags []string, runtimeCfg *config.Config)  (OCIRuntime, error) {
+func newShimV2OCIRuntime(name string, paths []string, runtimeFlags []string, runtimeCfg *config.Config)  (OCIRuntime, error) {
 	// Make lookup tables for runtime support
 	supportsJSON := make(map[string]bool, len(runtimeCfg.Engine.RuntimeSupportsJSON.Get()))
 	supportsNoCgroups := make(map[string]bool, len(runtimeCfg.Engine.RuntimeSupportsNoCgroups.Get()))
@@ -88,12 +86,11 @@ func newConmonOCIRuntime(name string, paths []string, conmonPath string, runtime
 		supportsKVM[r] = true
 	}
 
-	runtime := new(ConmonOCIRuntime)
+	runtime := new(ShimV2OCIRuntime)
 	runtime.name = name
-	runtime.conmonPath = conmonPath
 	runtime.runtimeFlags = runtimeFlags
 
-	runtime.conmonEnv = runtimeCfg.Engine.ConmonEnvVars.Get()
+	runtime.shimV2Env = runtimeCfg.Engine.ShimV2EnvVars.Get()
 	runtime.tmpDir = runtimeCfg.Engine.TmpDir
 	runtime.logSizeMax = runtimeCfg.Containers.LogSizeMax
 	runtime.noPivot = runtimeCfg.Engine.NoPivotRoot
@@ -115,7 +112,7 @@ func newConmonOCIRuntime(name string, paths []string, conmonPath string, runtime
 			if os.IsNotExist(err) {
 				continue
 			}
-			return nil, fmt.Errorf("cannot stat OCI runtime %s path: %w", name, err)
+			return nil, fmt.Errorf("cannot stat OCI shim-V2 runtime %s path: %w", name, err)
 		}
 		if !stat.Mode().IsRegular() {
 			continue
@@ -140,26 +137,24 @@ func newConmonOCIRuntime(name string, paths []string, conmonPath string, runtime
 	}
 
 	runtime.exitsDir = filepath.Join(runtime.tmpDir, "exits")
-	// The persist-dir is where conmon writes the exit file and oom file (if oom killed), we join the container ID to this path later on
-	runtime.persistDir = filepath.Join(runtime.tmpDir, "persist")
 
 	// Create the exit files and attach sockets directories
 	if err := os.MkdirAll(runtime.exitsDir, 0750); err != nil {
-		return nil, fmt.Errorf("creating OCI runtime exit files directory: %w", err)
-	}
-	if err := os.MkdirAll(runtime.persistDir, 0750); err != nil {
-		return nil, fmt.Errorf("creating OCI runtime persist directory: %w", err)
+		// The directory is allowed to exist
+		if !os.IsExist(err) {
+			return nil, fmt.Errorf("creating OCI runtime exit files directory: %w", err)
+		}
 	}
 	return runtime, nil
 }
 
-// Name returns the name of the runtime being wrapped by Conmon.
-func (r *ConmonOCIRuntime) Name() string {
+// Name returns the name of the runtime being wrapped by ShimV2.
+func (r *ShimV2OCIRuntime) Name() string {
 	return r.name
 }
 
-// Path returns the path of the OCI runtime being wrapped by Conmon.
-func (r *ConmonOCIRuntime) Path() string {
+// Path returns the path of the OCI runtime being wrapped by ShimV2.
+func (r *ShimV2OCIRuntime) Path() string {
 	return r.path
 }
 
@@ -178,7 +173,7 @@ func hasCurrentUserMapped(ctr *Container) bool {
 }
 
 // CreateContainer creates a container.
-func (r *ConmonOCIRuntime) CreateContainer(ctr *Container, restoreOptions *ContainerCheckpointOptions) (int64, error) {
+func (r *ShimV2OCIRuntime) CreateContainer(ctr *Container, restoreOptions *ContainerCheckpointOptions) (int64, error) {
 	// always make the run dir accessible to the current user so that the PID files can be read without
 	// being in the rootless user namespace.
 	if err := makeAccessible(ctr.state.RunDir, 0, 0); err != nil {
@@ -203,9 +198,9 @@ func (r *ConmonOCIRuntime) CreateContainer(ctr *Container, restoreOptions *Conta
 // UpdateContainerStatus retrieves the current status of the container from the
 // runtime. It updates the container's state but does not save it.
 // If useRuntime is false, we will not directly hit runc to see the container's
-// status, but will instead only check for the existence of the conmon exit file
+// status, but will instead only check for the existence of the shimV2 exit file
 // and update state to stopped if it exists.
-func (r *ConmonOCIRuntime) UpdateContainerStatus(ctr *Container) error {
+func (r *ShimV2OCIRuntime) UpdateContainerStatus(ctr *Container) error {
 	runtimeDir, err := util.GetRootlessRuntimeDir()
 	if err != nil {
 		return err
@@ -234,8 +229,8 @@ func (r *ConmonOCIRuntime) UpdateContainerStatus(ctr *Container) error {
 			return fmt.Errorf("getting container %s state: %w", ctr.ID(), err)
 		}
 		if strings.Contains(string(out), "does not exist") || strings.Contains(string(out), "No such file") {
-			if err := ctr.removeConmonFiles(); err != nil {
-				logrus.Debugf("unable to remove conmon files for container %s", ctr.ID())
+			if err := ctr.removeShimV2Files(); err != nil {
+				logrus.Debugf("unable to remove shimV2 files for container %s", ctr.ID())
 			}
 			ctr.state.ExitCode = -1
 			ctr.state.FinishedTime = time.Now()
@@ -285,7 +280,7 @@ func (r *ConmonOCIRuntime) UpdateContainerStatus(ctr *Container) error {
 
 // StartContainer starts the given container.
 // Sets time the container was started, but does not save it.
-func (r *ConmonOCIRuntime) StartContainer(ctr *Container) error {
+func (r *ShimV2OCIRuntime) StartContainer(ctr *Container) error {
 	// TODO: streams should probably *not* be our STDIN/OUT/ERR - redirect to buffers?
 	runtimeDir, err := util.GetRootlessRuntimeDir()
 	if err != nil {
@@ -305,7 +300,7 @@ func (r *ConmonOCIRuntime) StartContainer(ctr *Container) error {
 }
 
 // UpdateContainer updates the given container's cgroup configuration
-func (r *ConmonOCIRuntime) UpdateContainer(ctr *Container, resources *spec.LinuxResources) error {
+func (r *ShimV2OCIRuntime) UpdateContainer(ctr *Container, resources *spec.LinuxResources) error {
 	runtimeDir, err := util.GetRootlessRuntimeDir()
 	if err != nil {
 		return err
@@ -353,7 +348,7 @@ func generateResourceFile(res *spec.LinuxResources) (string, []string, error) {
 // KillContainer sends the given signal to the given container.
 // If all is set, send to all PIDs in the container.
 // All is only supported if the container created cgroups.
-func (r *ConmonOCIRuntime) KillContainer(ctr *Container, signal uint, all bool) error {
+func (r *ShimV2OCIRuntime) KillContainer(ctr *Container, signal uint, all bool) error {
 	if _, err := r.killContainer(ctr, signal, all, false); err != nil {
 		return err
 	}
@@ -363,7 +358,7 @@ func (r *ConmonOCIRuntime) KillContainer(ctr *Container, signal uint, all bool) 
 
 // If captureStderr is requested, OCI runtime STDERR will be captured as a
 // *bytes.buffer and returned; otherwise, it is set to os.Stderr.
-func (r *ConmonOCIRuntime) killContainer(ctr *Container, signal uint, all, captureStderr bool) (*bytes.Buffer, error) {
+func (r *ShimV2OCIRuntime) killContainer(ctr *Container, signal uint, all, captureStderr bool) (*bytes.Buffer, error) {
 	logrus.Debugf("Sending signal %d to container %s", signal, ctr.ID())
 	runtimeDir, err := util.GetRootlessRuntimeDir()
 	if err != nil {
@@ -406,7 +401,7 @@ func (r *ConmonOCIRuntime) killContainer(ctr *Container, signal uint, all, captu
 // immediately kill with SIGKILL.
 // Does not set finished time for container, assumes you will run updateStatus
 // after to pull the exit code.
-func (r *ConmonOCIRuntime) StopContainer(ctr *Container, timeout uint, all bool) error {
+func (r *ShimV2OCIRuntime) StopContainer(ctr *Container, timeout uint, all bool) error {
 	logrus.Debugf("Stopping container %s (PID %d)", ctr.ID(), ctr.state.PID)
 
 	// Ping the container to see if it's alive
@@ -500,7 +495,7 @@ func (r *ConmonOCIRuntime) StopContainer(ctr *Container, timeout uint, all bool)
 }
 
 // DeleteContainer deletes a container from the OCI runtime.
-func (r *ConmonOCIRuntime) DeleteContainer(ctr *Container) error {
+func (r *ShimV2OCIRuntime) DeleteContainer(ctr *Container) error {
 	runtimeDir, err := util.GetRootlessRuntimeDir()
 	if err != nil {
 		return err
@@ -510,7 +505,7 @@ func (r *ConmonOCIRuntime) DeleteContainer(ctr *Container) error {
 }
 
 // PauseContainer pauses the given container.
-func (r *ConmonOCIRuntime) PauseContainer(ctr *Container) error {
+func (r *ShimV2OCIRuntime) PauseContainer(ctr *Container) error {
 	runtimeDir, err := util.GetRootlessRuntimeDir()
 	if err != nil {
 		return err
@@ -520,7 +515,7 @@ func (r *ConmonOCIRuntime) PauseContainer(ctr *Container) error {
 }
 
 // UnpauseContainer unpauses the given container.
-func (r *ConmonOCIRuntime) UnpauseContainer(ctr *Container) error {
+func (r *ShimV2OCIRuntime) UnpauseContainer(ctr *Container) error {
 	runtimeDir, err := util.GetRootlessRuntimeDir()
 	if err != nil {
 		return err
@@ -547,7 +542,7 @@ func socketCloseWrite(conn *net.UnixConn) error {
 // will stream with an 8-byte header to multiplex STDOUT and STDERR.
 // Returns any errors that occurred, and whether the connection was successfully
 // hijacked before that error occurred.
-func (r *ConmonOCIRuntime) HTTPAttach(ctr *Container, req *http.Request, w http.ResponseWriter, streams *HTTPAttachStreams, detachKeys *string, cancel <-chan bool, hijackDone chan<- bool, streamAttach, streamLogs bool) (deferredErr error) {
+func (r *ShimV2OCIRuntime) HTTPAttach(ctr *Container, req *http.Request, w http.ResponseWriter, streams *HTTPAttachStreams, detachKeys *string, cancel <-chan bool, hijackDone chan<- bool, streamAttach, streamLogs bool) (deferredErr error) {
 	isTerminal := ctr.Terminal()
 
 	if streams != nil {
@@ -788,7 +783,7 @@ func openControlFile(ctr *Container, parentDir string) (*os.File, error) {
 }
 
 // AttachResize resizes the terminal used by the given container.
-func (r *ConmonOCIRuntime) AttachResize(ctr *Container, newSize resize.TerminalSize) error {
+func (r *ShimV2OCIRuntime) AttachResize(ctr *Container, newSize resize.TerminalSize) error {
 	controlFile, err := openControlFile(ctr, ctr.bundlePath())
 	if err != nil {
 		return err
@@ -804,7 +799,7 @@ func (r *ConmonOCIRuntime) AttachResize(ctr *Container, newSize resize.TerminalS
 }
 
 // CheckpointContainer checkpoints the given container.
-func (r *ConmonOCIRuntime) CheckpointContainer(ctr *Container, options ContainerCheckpointOptions) (int64, error) {
+func (r *ShimV2OCIRuntime) CheckpointContainer(ctr *Container, options ContainerCheckpointOptions) (int64, error) {
 	// imagePath is used by CRIU to store the actual checkpoint files
 	imagePath := ctr.CheckpointPath()
 	if options.PreCheckPoint {
@@ -873,57 +868,57 @@ func (r *ConmonOCIRuntime) CheckpointContainer(ctr *Container, options Container
 	return runtimeCheckpointDuration, err
 }
 
-func (r *ConmonOCIRuntime) CheckConmonRunning(ctr *Container) (bool, error) {
-	if ctr.state.ConmonPID == 0 {
-		// If the container is running or paused, assume Conmon is
-		// running. We didn't record Conmon PID on some old versions, so
+func (r *ShimV2OCIRuntime) CheckShimV2Running(ctr *Container) (bool, error) {
+	if ctr.state.ShimV2PID == 0 {
+		// If the container is running or paused, assume ShimV2 is
+		// running. We didn't record ShimV2 PID on some old versions, so
 		// that is likely what's going on...
 		// Unusual enough that we should print a warning message though.
 		if ctr.ensureState(define.ContainerStateRunning, define.ContainerStatePaused) {
-			logrus.Warnf("Conmon PID is not set, but container is running!")
+			logrus.Warnf("ShimV2 PID is not set, but container is running!")
 			return true, nil
 		}
-		// Container's not running, so conmon PID being unset is
-		// expected. Conmon is not running.
+		// Container's not running, so shimV2 PID being unset is
+		// expected. ShimV2 is not running.
 		return false, nil
 	}
 
-	// We have a conmon PID. Ping it with signal 0.
-	if err := unix.Kill(ctr.state.ConmonPID, 0); err != nil {
+	// We have a shimV2 PID. Ping it with signal 0.
+	if err := unix.Kill(ctr.state.ShimV2PID, 0); err != nil {
 		if err == unix.ESRCH {
 			return false, nil
 		}
-		return false, fmt.Errorf("pinging container %s conmon with signal 0: %w", ctr.ID(), err)
+		return false, fmt.Errorf("pinging container %s shimV2 with signal 0: %w", ctr.ID(), err)
 	}
 	return true, nil
 }
 
 // SupportsCheckpoint checks if the OCI runtime supports checkpointing
 // containers.
-func (r *ConmonOCIRuntime) SupportsCheckpoint() bool {
+func (r *ShimV2OCIRuntime) SupportsCheckpoint() bool {
 	return crutils.CRRuntimeSupportsCheckpointRestore(r.path)
 }
 
 // SupportsJSONErrors checks if the OCI runtime supports JSON-formatted error
 // messages.
-func (r *ConmonOCIRuntime) SupportsJSONErrors() bool {
+func (r *ShimV2OCIRuntime) SupportsJSONErrors() bool {
 	return r.supportsJSON
 }
 
 // SupportsNoCgroups checks if the OCI runtime supports running containers
 // without cgroups (the --cgroup-manager=disabled flag).
-func (r *ConmonOCIRuntime) SupportsNoCgroups() bool {
+func (r *ShimV2OCIRuntime) SupportsNoCgroups() bool {
 	return r.supportsNoCgroups
 }
 
 // SupportsKVM checks if the OCI runtime supports running containers
 // without KVM separation
-func (r *ConmonOCIRuntime) SupportsKVM() bool {
+func (r *ShimV2OCIRuntime) SupportsKVM() bool {
 	return r.supportsKVM
 }
 
 // AttachSocketPath is the path to a single container's attach socket.
-func (r *ConmonOCIRuntime) AttachSocketPath(ctr *Container) (string, error) {
+func (r *ShimV2OCIRuntime) AttachSocketPath(ctr *Container) (string, error) {
 	if ctr == nil {
 		return "", fmt.Errorf("must provide a valid container to get attach socket path: %w", define.ErrInvalidArg)
 	}
@@ -932,36 +927,30 @@ func (r *ConmonOCIRuntime) AttachSocketPath(ctr *Container) (string, error) {
 }
 
 // ExitFilePath is the path to a container's exit file.
-func (r *ConmonOCIRuntime) ExitFilePath(ctr *Container) (string, error) {
+func (r *ShimV2OCIRuntime) ExitFilePath(ctr *Container) (string, error) {
 	if ctr == nil {
 		return "", fmt.Errorf("must provide a valid container to get exit file path: %w", define.ErrInvalidArg)
 	}
 	return filepath.Join(r.exitsDir, ctr.ID()), nil
 }
 
-// OOMFilePath is the path to a container's oom file.
-// The oom file will only exist if the container was oom killed.
-func (r *ConmonOCIRuntime) OOMFilePath(ctr *Container) (string, error) {
-	return filepath.Join(r.persistDir, ctr.ID(), "oom"), nil
-}
-
 // RuntimeInfo provides information on the runtime.
-func (r *ConmonOCIRuntime) RuntimeInfo() (*define.ConmonInfo, *define.OCIRuntimeInfo, error) {
+func (r *ShimV2OCIRuntime) RuntimeInfo() (*define.ShimV2Info, *define.OCIRuntimeInfo, error) {
 	runtimePackage := version.Package(r.path)
-	conmonPackage := version.Package(r.conmonPath)
+	shimV2Package := version.Package(r.shimV2Path)
 	runtimeVersion, err := r.getOCIRuntimeVersion()
 	if err != nil {
 		return nil, nil, fmt.Errorf("getting version of OCI runtime %s: %w", r.name, err)
 	}
-	conmonVersion, err := r.getConmonVersion()
+	shimV2Version, err := r.getShimV2Version()
 	if err != nil {
-		return nil, nil, fmt.Errorf("getting conmon version: %w", err)
+		return nil, nil, fmt.Errorf("getting shimV2 version: %w", err)
 	}
 
-	conmon := define.ConmonInfo{
-		Package: conmonPackage,
-		Path:    r.conmonPath,
-		Version: conmonVersion,
+	shimV2 := define.ShimV2Info{
+		Package: shimV2Package,
+		Path:    r.shimV2Path,
+		Version: shimV2Version,
 	}
 	ocirt := define.OCIRuntimeInfo{
 		Name:    r.name,
@@ -969,7 +958,7 @@ func (r *ConmonOCIRuntime) RuntimeInfo() (*define.ConmonInfo, *define.OCIRuntime
 		Package: runtimePackage,
 		Version: runtimeVersion,
 	}
-	return &conmon, &ocirt, nil
+	return &shimV2, &ocirt, nil
 }
 
 // makeAccessible changes the path permission and each parent directory to have --x--x--x
@@ -1019,7 +1008,7 @@ func waitPidStop(pid int, timeout time.Duration) error {
 	}
 }
 
-func (r *ConmonOCIRuntime) getLogTag(ctr *Container) (string, error) {
+func (r *ShimV2OCIRuntime) getLogTag(ctr *Container) (string, error) {
 	logTag := ctr.LogTag()
 	if logTag == "" {
 		return "", nil
@@ -1074,8 +1063,8 @@ func getPreserveFdExtraFiles(preserveFD []uint, preserveFDs uint) (uint, []*os.F
 	return preserveFDs, filesToClose, extraFiles, nil
 }
 
-// createOCIContainer generates this container's main conmon instance and prepares it for starting
-func (r *ConmonOCIRuntime) createOCIContainer(ctr *Container, restoreOptions *ContainerCheckpointOptions) (int64, error) {
+// createOCIContainer generates this container's main shimV2 instance and prepares it for starting
+func (r *ShimV2OCIRuntime) createOCIContainer(ctr *Container, restoreOptions *ContainerCheckpointOptions) (int64, error) {
 	var stderrBuf bytes.Buffer
 
 	parentSyncPipe, childSyncPipe, err := newPipe()
@@ -1112,11 +1101,7 @@ func (r *ConmonOCIRuntime) createOCIContainer(ctr *Container, restoreOptions *Co
 		pidfile = filepath.Join(ctr.state.RunDir, "pidfile")
 	}
 
-	persistDir := filepath.Join(r.persistDir, ctr.ID())
-	args, err := r.sharedConmonArgs(ctr, ctr.ID(), ctr.bundlePath(), pidfile, ctr.LogPath(), r.exitsDir, persistDir, ociLog, ctr.LogDriver(), logTag)
-	if err != nil {
-		return 0, err
-	}
+	args := r.sharedShimV2Args(ctr, ctr.ID(), ctr.bundlePath(), pidfile, ctr.LogPath(), r.exitsDir, ociLog, ctr.LogDriver(), logTag)
 
 	if ctr.config.SdNotifyMode == define.SdNotifyModeContainer && ctr.config.SdNotifySocket != "" {
 		args = append(args, fmt.Sprintf("--sdnotify-socket=%s", ctr.config.SdNotifySocket))
@@ -1135,8 +1120,8 @@ func (r *ConmonOCIRuntime) createOCIContainer(ctr *Container, restoreOptions *Co
 	if !r.enableKeyring {
 		args = append(args, "--no-new-keyring")
 	}
-	if ctr.config.ConmonPidFile != "" {
-		args = append(args, "--conmon-pidfile", ctr.config.ConmonPidFile)
+	if ctr.config.ShimV2PidFile != "" {
+		args = append(args, "--shimV2-pidfile", ctr.config.ShimV2PidFile)
 	}
 
 	if r.noPivot {
@@ -1213,9 +1198,9 @@ func (r *ConmonOCIRuntime) createOCIContainer(ctr *Container, restoreOptions *Co
 
 	logrus.WithFields(logrus.Fields{
 		"args": args,
-	}).Debugf("running conmon: %s", r.conmonPath)
+	}).Debugf("running shimV2: %s", r.path)
 
-	cmd := exec.Command(r.conmonPath, args...)
+	cmd := exec.Command(r.path, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
 	}
@@ -1229,18 +1214,18 @@ func (r *ConmonOCIRuntime) createOCIContainer(ctr *Container, restoreOptions *Co
 	}
 
 	// 0, 1 and 2 are stdin, stdout and stderr
-	conmonEnv, err := r.configureConmonEnv()
+	shimV2Env, err := r.configureShimV2Env()
 	if err != nil {
-		return 0, fmt.Errorf("configuring conmon env: %w", err)
+		return 0, fmt.Errorf("configuring shimV2 env: %w", err)
 	}
 
 	cmd.ExtraFiles = extraFiles
 
-	cmd.Env = r.conmonEnv
+	cmd.Env = r.shimV2Env
 	// we don't want to step on users fds they asked to preserve
 	// Since 0-2 are used for stdio, start the fds we pass in at preserveFDs+3
 	cmd.Env = append(cmd.Env, fmt.Sprintf("_OCI_SYNCPIPE=%d", preserveFDs+3), fmt.Sprintf("_OCI_STARTPIPE=%d", preserveFDs+4))
-	cmd.Env = append(cmd.Env, conmonEnv...)
+	cmd.Env = append(cmd.Env, shimV2Env...)
 	cmd.ExtraFiles = append(cmd.ExtraFiles, childSyncPipe, childStartPipe)
 
 	if r.reservePorts && !rootless.IsRootless() && !ctr.config.NetMode.IsSlirp4netns() {
@@ -1250,8 +1235,8 @@ func (r *ConmonOCIRuntime) createOCIContainer(ctr *Container, restoreOptions *Co
 		}
 		filesToClose = append(filesToClose, ports...)
 
-		// Leak the port we bound in the conmon process.  These fd's won't be used
-		// by the container and conmon will keep the ports busy so that another
+		// Leak the port we bound in the shimV2 process.  These fd's won't be used
+		// by the container and shimV2 will keep the ports busy so that another
 		// process cannot use them.
 		cmd.ExtraFiles = append(cmd.ExtraFiles, ports...)
 	}
@@ -1273,13 +1258,13 @@ func (r *ConmonOCIRuntime) createOCIContainer(ctr *Container, restoreOptions *Co
 
 		if ctr.rootlessSlirpSyncW != nil {
 			defer errorhandling.CloseQuiet(ctr.rootlessSlirpSyncW)
-			// Leak one end in conmon, the other one will be leaked into slirp4netns
+			// Leak one end in shimV2, the other one will be leaked into slirp4netns
 			cmd.ExtraFiles = append(cmd.ExtraFiles, ctr.rootlessSlirpSyncW)
 		}
 
 		if ctr.rootlessPortSyncW != nil {
 			defer errorhandling.CloseQuiet(ctr.rootlessPortSyncW)
-			// Leak one end in conmon, the other one will be leaked into rootlessport
+			// Leak one end in shimV2, the other one will be leaked into rootlessport
 			cmd.ExtraFiles = append(cmd.ExtraFiles, ctr.rootlessPortSyncW)
 		}
 	}
@@ -1295,13 +1280,13 @@ func (r *ConmonOCIRuntime) createOCIContainer(ctr *Container, restoreOptions *Co
 	if err != nil {
 		return 0, err
 	}
-	if err := r.moveConmonToCgroupAndSignal(ctr, cmd, parentStartPipe); err != nil {
+	if err := r.moveShimV2ToCgroupAndSignal(ctr, cmd, parentStartPipe); err != nil {
 		// The child likely already exited in which case the cmd.Wait() below should return the proper error.
 		// EPIPE is expected if the child already exited so not worth to log and kill the process.
 		if !errors.Is(err, syscall.EPIPE) {
-			logrus.Errorf("Failed to signal conmon to start: %v", err)
+			logrus.Errorf("Failed to signal shimV2 to start: %v", err)
 			if err := cmd.Process.Kill(); err != nil && !errors.Is(err, syscall.ESRCH) {
-				logrus.Errorf("Failed to kill conmon after error: %v", err)
+				logrus.Errorf("Failed to kill shimV2 after error: %v", err)
 			}
 		}
 	}
@@ -1309,10 +1294,10 @@ func (r *ConmonOCIRuntime) createOCIContainer(ctr *Container, restoreOptions *Co
 	/* Wait for initial setup and fork, and reap child */
 	err = cmd.Wait()
 	if err != nil {
-		return 0, fmt.Errorf("conmon failed: %w", err)
+		return 0, fmt.Errorf("shimV2 failed: %w", err)
 	}
 
-	pid, err := readConmonPipeData(r.name, parentSyncPipe, ociLog)
+	pid, err := readShimV2PipeData(r.name, parentSyncPipe, ociLog)
 	if err != nil {
 		if err2 := r.DeleteContainer(ctr); err2 != nil {
 			logrus.Errorf("Removing container %s from runtime after creation failed", ctr.ID())
@@ -1321,13 +1306,13 @@ func (r *ConmonOCIRuntime) createOCIContainer(ctr *Container, restoreOptions *Co
 	}
 	ctr.state.PID = pid
 
-	conmonPID, err := readConmonPidFile(ctr.config.ConmonPidFile)
+	shimV2PID, err := readShimV2PidFile(ctr.config.ShimV2PidFile)
 	if err != nil {
-		logrus.Warnf("Error reading conmon pid file for container %s: %v", ctr.ID(), err)
-	} else if conmonPID > 0 {
-		// conmon not having a pid file is a valid state, so don't set it if we don't have it
-		logrus.Infof("Got Conmon PID as %d", conmonPID)
-		ctr.state.ConmonPID = conmonPID
+		logrus.Warnf("Error reading shimV2 pid file for container %s: %v", ctr.ID(), err)
+	} else if shimV2PID > 0 {
+		// shimV2 not having a pid file is a valid state, so don't set it if we don't have it
+		logrus.Infof("Got ShimV2 PID as %d", shimV2PID)
+		ctr.state.ShimV2PID = shimV2PID
 	}
 
 	runtimeRestoreDuration := func() int64 {
@@ -1346,8 +1331,8 @@ func (r *ConmonOCIRuntime) createOCIContainer(ctr *Container, restoreOptions *Co
 	return runtimeRestoreDuration, nil
 }
 
-// configureConmonEnv gets the environment values to add to conmon's exec struct
-func (r *ConmonOCIRuntime) configureConmonEnv() ([]string, error) {
+// configureShimV2Env gets the environment values to add to shimV2's exec struct
+func (r *ShimV2OCIRuntime) configureShimV2Env() ([]string, error) {
 	env := os.Environ()
 	res := make([]string, 0, len(env))
 	for _, v := range env {
@@ -1371,18 +1356,9 @@ func (r *ConmonOCIRuntime) configureConmonEnv() ([]string, error) {
 	return res, nil
 }
 
-// sharedConmonArgs takes common arguments for exec and create/restore and formats them for the conmon CLI
-// func (r *ConmonOCIRuntime) sharedConmonArgs(ctr *Container, cuuid, bundlePath, pidPath, logPath, exitDir, persistDir, ociLogPath, logDriver, logTag string) ([]string, error) {
-func (r *ConmonOCIRuntime) sharedConmonArgs(ctr *Container, cuuid, bundlePath, pidPath, logPath, exitDir, persistDir, ociLogPath, logDriver, logTag string) ([]string, error) {
-	// Make the persists directory for the container after the ctr ID is appended to it in the caller
-	// This is needed as conmon writes the exit and oom file in the given persist directory path as just "exit" and "oom"
-	// So creating a directory with the container ID under the persist dir will help keep track of which container the
-	// exit and oom files belong to.
-	if err := os.MkdirAll(persistDir, 0750); err != nil {
-		return nil, fmt.Errorf("creating OCI runtime oom files directory for ctr %q: %w", ctr.ID(), err)
-	}
-
-	// set the conmon API version to be able to use the correct sync struct keys
+// sharedShimV2Args takes common arguments for exec and create/restore and formats them for the shimV2 CLI
+func (r *ShimV2OCIRuntime) sharedShimV2Args(ctr *Container, cuuid, bundlePath, pidPath, logPath, exitDir, ociLogPath, logDriver, logTag string) []string {
+	// set the shimV2 API version to be able to use the correct sync struct keys
 	args := []string{
 		"--api-version", "1",
 		"-c", ctr.ID(),
@@ -1392,7 +1368,6 @@ func (r *ConmonOCIRuntime) sharedConmonArgs(ctr *Container, cuuid, bundlePath, p
 		"-p", pidPath,
 		"-n", ctr.Name(),
 		"--exit-dir", exitDir,
-		"--persist-dir", persistDir,
 		"--full-attach",
 	}
 	if len(r.runtimeFlags) > 0 {
@@ -1434,7 +1409,7 @@ func (r *ConmonOCIRuntime) sharedConmonArgs(ctr *Container, cuuid, bundlePath, p
 	logLevel := logrus.GetLevel()
 	args = append(args, "--log-level", logLevel.String())
 
-	logrus.Debugf("%s messages will be logged to syslog", r.conmonPath)
+	logrus.Debugf("%s messages will be logged to syslog", r.shimV2Path)
 	args = append(args, "--syslog")
 
 	size := r.logSizeMax
@@ -1455,7 +1430,7 @@ func (r *ConmonOCIRuntime) sharedConmonArgs(ctr *Container, cuuid, bundlePath, p
 		logrus.Debugf("Running with no Cgroups")
 		args = append(args, "--runtime-arg", "--cgroup-manager", "--runtime-arg", "disabled")
 	}
-	return args, nil
+	return args
 }
 
 // newPipe creates a unix socket pair for communication.
@@ -1468,33 +1443,33 @@ func newPipe() (*os.File, *os.File, error) {
 	return os.NewFile(uintptr(fds[1]), "parent"), os.NewFile(uintptr(fds[0]), "child"), nil
 }
 
-// readConmonPidFile attempts to read conmon's pid from its pid file
-func readConmonPidFile(pidFile string) (int, error) {
-	// Let's try reading the Conmon pid at the same time.
+// readShimV2PidFile attempts to read shimV2's pid from its pid file
+func readShimV2PidFile(pidFile string) (int, error) {
+	// Let's try reading the ShimV2 pid at the same time.
 	if pidFile != "" {
 		contents, err := os.ReadFile(pidFile)
 		if err != nil {
 			return -1, err
 		}
 		// Convert it to an int
-		conmonPID, err := strconv.Atoi(string(contents))
+		shimV2PID, err := strconv.Atoi(string(contents))
 		if err != nil {
 			return -1, err
 		}
-		return conmonPID, nil
+		return shimV2PID, nil
 	}
 	return 0, nil
 }
 
-// readConmonPipeData attempts to read a syncInfo struct from the pipe
-func readConmonPipeData(runtimeName string, pipe *os.File, ociLog string) (int, error) {
+// readShimV2PipeData attempts to read a syncInfo struct from the pipe
+func readShimV2PipeData(runtimeName string, pipe *os.File, ociLog string) (int, error) {
 	// syncInfo is used to return data from monitor process to daemon
 	type syncInfo struct {
 		Data    int    `json:"data"`
 		Message string `json:"message,omitempty"`
 	}
 
-	// Wait to get container pid from conmon
+	// Wait to get container pid from shimV2
 	type syncStruct struct {
 		si  *syncInfo
 		err error
@@ -1510,7 +1485,7 @@ func readConmonPipeData(runtimeName string, pipe *os.File, ociLog string) (int, 
 			ch <- syncStruct{err: err}
 		}
 		if err := json.Unmarshal(b, &si); err != nil {
-			ch <- syncStruct{err: fmt.Errorf("conmon bytes %q: %w", string(b), err)}
+			ch <- syncStruct{err: fmt.Errorf("shimV2 bytes %q: %w", string(b), err)}
 			return
 		}
 		ch <- syncStruct{si: si}
@@ -1529,7 +1504,7 @@ func readConmonPipeData(runtimeName string, pipe *os.File, ociLog string) (int, 
 					}
 				}
 			}
-			return -1, fmt.Errorf("container create failed (no logs from conmon): %w", ss.err)
+			return -1, fmt.Errorf("container create failed (no logs from shimV2): %w", ss.err)
 		}
 		logrus.Debugf("Received: %d", ss.si.Data)
 		if ss.si.Data < 0 {
@@ -1555,14 +1530,14 @@ func readConmonPipeData(runtimeName string, pipe *os.File, ociLog string) (int, 
 	return data, nil
 }
 
-// writeConmonPipeData writes nonce data to a pipe
-func writeConmonPipeData(pipe *os.File) error {
+// writeShimV2PipeData writes nonce data to a pipe
+func writeShimV2PipeData(pipe *os.File) error {
 	someData := []byte{0}
 	_, err := pipe.Write(someData)
 	return err
 }
 
-// formatRuntimeOpts prepends opts passed to it with --runtime-opt for passing to conmon
+// formatRuntimeOpts prepends opts passed to it with --runtime-opt for passing to shimV2
 func formatRuntimeOpts(opts ...string) []string {
 	args := make([]string, 0, len(opts)*2)
 	for _, o := range opts {
@@ -1571,9 +1546,9 @@ func formatRuntimeOpts(opts ...string) []string {
 	return args
 }
 
-// getConmonVersion returns a string representation of the conmon version.
-func (r *ConmonOCIRuntime) getConmonVersion() (string, error) {
-	output, err := utils.ExecCmd(r.conmonPath, "--version")
+// getShimV2Version returns a string representation of the shimV2 version.
+func (r *ShimV2OCIRuntime) getShimV2Version() (string, error) {
+	output, err := utils.ExecCmd(r.shimV2Path, "--version")
 	if err != nil {
 		return "", err
 	}
@@ -1582,7 +1557,7 @@ func (r *ConmonOCIRuntime) getConmonVersion() (string, error) {
 
 // getOCIRuntimeVersion returns a string representation of the OCI runtime's
 // version.
-func (r *ConmonOCIRuntime) getOCIRuntimeVersion() (string, error) {
+func (r *ShimV2OCIRuntime) getOCIRuntimeVersion() (string, error) {
 	output, err := utils.ExecCmd(r.path, "--version")
 	if err != nil {
 		return "", err
@@ -1646,7 +1621,7 @@ func httpAttachNonTerminalCopy(container *net.UnixConn, http *bufio.ReadWriter, 
 			var headerBuf []byte
 
 			// Subtract 1 because we strip the first byte (used for
-			// multiplexing by Conmon).
+			// multiplexing by ShimV2).
 			headerLen := uint32(numR - 1)
 			// Practically speaking, we could make this buf[0] - 1,
 			// but we need to validate it anyway.
