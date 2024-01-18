@@ -173,8 +173,8 @@ func (r *MissingRuntime) CheckpointContainer(ctr *Container, options ContainerCh
 	return 0, r.printError()
 }
 
-// CheckConmonRunning is not available as the runtime is missing
-func (r *MissingRuntime) CheckConmonRunning(ctr *Container) (bool, error) {
+// CheckShimRunning is not available as the runtime is missing
+func (r *MissingRuntime) CheckShimRunning(ctr *Container) (bool, error) {
 	return false, r.printError()
 }
 
@@ -232,7 +232,7 @@ func (r *MissingRuntime) OOMFilePath(ctr *Container) (string, error) {
 }
 
 // RuntimeInfo returns information on the missing runtime
-func (r *MissingRuntime) RuntimeInfo() (*define.ConmonInfo, *define.OCIRuntimeInfo, error) {
+func (r *MissingRuntime) RuntimeInfo() (*define.ShimInfo, *define.OCIRuntimeInfo, error) {
 	ocirt := define.OCIRuntimeInfo{
 		Name:    r.name,
 		Path:    "missing",

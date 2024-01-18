@@ -1437,7 +1437,7 @@ func (c *Container) stop(timeout uint) error {
 }
 
 func (c *Container) waitForConmonToExitAndSave() error {
-	conmonAlive, err := c.ociRuntime.CheckConmonRunning(c)
+	conmonAlive, err := c.ociRuntime.CheckShimRunning(c)
 	if err != nil {
 		return err
 	}

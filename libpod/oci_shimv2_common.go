@@ -794,8 +794,8 @@ func (r *ShimV2OCIRuntime) CheckpointContainer(ctr *Container, options Container
 	return runtimeCheckpointDuration, err
 }
 
-func (r *ShimV2OCIRuntime) CheckShimV2Running(ctr *Container) (bool, error) {
-	if ctr.state.ShimV2PID == 0 {
+func (r *ShimV2OCIRuntime) CheckShimRunning(ctr *Container) (bool, error) {
+	if ctr.state.ShimPID == 0 {
 		// If the container is running or paused, assume ShimV2 is
 		// running. We didn't record ShimV2 PID on some old versions, so
 		// that is likely what's going on...
@@ -861,22 +861,17 @@ func (r *ShimV2OCIRuntime) ExitFilePath(ctr *Container) (string, error) {
 }
 
 // RuntimeInfo provides information on the runtime.
-func (r *ShimV2OCIRuntime) RuntimeInfo() (*define.ShimV2Info, *define.OCIRuntimeInfo, error) {
+func (r *ShimV2OCIRuntime) RuntimeInfo() (*define.ShimInfo, *define.OCIRuntimeInfo, error) {
 	runtimePackage := version.Package(r.path)
-	shimV2Package := version.Package(r.shimV2Path)
 	runtimeVersion, err := r.getOCIRuntimeVersion()
 	if err != nil {
-		return nil, nil, fmt.Errorf("getting version of OCI runtime %s: %w", r.name, err)
-	}
-	shimV2Version, err := r.getShimV2Version()
-	if err != nil {
-		return nil, nil, fmt.Errorf("getting shimV2 version: %w", err)
+		return nil, nil, fmt.Errorf("getting version of shim-v2 runtime %s: %w", r.name, err)
 	}
 
-	shimV2 := define.ShimV2Info{
-		Package: shimV2Package,
-		Path:    r.shimV2Path,
-		Version: shimV2Version,
+	shimV2 := define.ShimInfo{
+		Package: runtimePackage,
+		Path:    r.path,
+		Version: runtimeVersion,
 	}
 	ocirt := define.OCIRuntimeInfo{
 		Name:    r.name,

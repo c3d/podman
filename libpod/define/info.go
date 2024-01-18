@@ -33,7 +33,7 @@ type HostInfo struct {
 	CgroupManager      string            `json:"cgroupManager"`
 	CgroupsVersion     string            `json:"cgroupVersion"`
 	CgroupControllers  []string          `json:"cgroupControllers"`
-	Conmon             *ConmonInfo       `json:"conmon"`
+	Conmon             *ShimInfo       `json:"conmon"`
 	CPUs               int               `json:"cpus"`
 	CPUUtilization     *CPUUsage         `json:"cpuUtilization"`
 	DatabaseBackend    string            `json:"databaseBackend"`
@@ -102,8 +102,8 @@ type DistributionInfo struct {
 	Codename     string `json:"codename,omitempty"`
 }
 
-// ConmonInfo describes the conmon executable being used
-type ConmonInfo struct {
+// ShimInfo describes the shim executable being used (conmon or shim-v2)
+type ShimInfo struct {
 	Package string `json:"package"`
 	Path    string `json:"path"`
 	Version string `json:"version"`
