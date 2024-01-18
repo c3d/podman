@@ -810,7 +810,7 @@ func (r *ShimV2OCIRuntime) CheckShimRunning(ctr *Container) (bool, error) {
 	}
 
 	// We have a shimV2 PID. Ping it with signal 0.
-	if err := unix.Kill(ctr.state.ShimV2PID, 0); err != nil {
+	if err := unix.Kill(ctr.state.ShimPID, 0); err != nil {
 		if err == unix.ESRCH {
 			return false, nil
 		}
@@ -961,8 +961,8 @@ func (r *ShimV2OCIRuntime) createOCIContainer(ctr *Container, restoreOptions *Co
 	if !r.enableKeyring {
 		args = append(args, "--no-new-keyring")
 	}
-	if ctr.config.ShimV2PidFile != "" {
-		args = append(args, "--shimV2-pidfile", ctr.config.ShimV2PidFile)
+	if ctr.config.ShimPidFile != "" {
+		args = append(args, "--shimV2-pidfile", ctr.config.ShimPidFile)
 	}
 
 	if r.noPivot {
@@ -1039,7 +1039,7 @@ func (r *ShimV2OCIRuntime) createOCIContainer(ctr *Container, restoreOptions *Co
 
 	logrus.WithFields(logrus.Fields{
 		"args": args,
-	}).Debugf("running shimV2: %s", r.path)
+	}).Debugf("running shim V2 binary: %s", r.path)
 
 	cmd := exec.Command(r.path, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -1147,13 +1147,13 @@ func (r *ShimV2OCIRuntime) createOCIContainer(ctr *Container, restoreOptions *Co
 	}
 	ctr.state.PID = pid
 
-	shimV2PID, err := readShimV2PidFile(ctr.config.ShimV2PidFile)
+	shimV2PID, err := readShimPidFile(ctr.config.ShimPidFile)
 	if err != nil {
 		logrus.Warnf("Error reading shimV2 pid file for container %s: %v", ctr.ID(), err)
 	} else if shimV2PID > 0 {
 		// shimV2 not having a pid file is a valid state, so don't set it if we don't have it
-		logrus.Infof("Got ShimV2 PID as %d", shimV2PID)
-		ctr.state.ShimV2PID = shimV2PID
+		logrus.Infof("Got shim V2 PID as %d", shimV2PID)
+		ctr.state.ShimPID = shimV2PID
 	}
 
 	runtimeRestoreDuration := func() int64 {
@@ -1250,7 +1250,7 @@ func (r *ShimV2OCIRuntime) sharedShimV2Args(ctr *Container, cuuid, bundlePath, p
 	logLevel := logrus.GetLevel()
 	args = append(args, "--log-level", logLevel.String())
 
-	logrus.Debugf("%s messages will be logged to syslog", r.shimV2Path)
+	logrus.Debugf("%s messages will be logged to syslog", r.path)
 	args = append(args, "--syslog")
 
 	size := r.logSizeMax
@@ -1274,8 +1274,8 @@ func (r *ShimV2OCIRuntime) sharedShimV2Args(ctr *Container, cuuid, bundlePath, p
 	return args
 }
 
-// readShimV2PidFile attempts to read shimV2's pid from its pid file
-func readShimV2PidFile(pidFile string) (int, error) {
+// readShimPidFile attempts to read shimV2's pid from its pid file
+func readShimPidFile(pidFile string) (int, error) {
 	// Let's try reading the ShimV2 pid at the same time.
 	if pidFile != "" {
 		contents, err := os.ReadFile(pidFile)
@@ -1370,7 +1370,7 @@ func writeShimPipeData(pipe *os.File) error {
 
 // getShimV2Version returns a string representation of the shimV2 version.
 func (r *ShimV2OCIRuntime) getShimV2Version() (string, error) {
-	output, err := utils.ExecCmd(r.shimV2Path, "--version")
+	output, err := utils.ExecCmd(r.path, "--version")
 	if err != nil {
 		return "", err
 	}

@@ -224,8 +224,8 @@ func generatePodInfo(pod *libpod.Pod, options entities.GenerateSystemdOptions) (
 	}
 
 	config := infraCtr.Config()
-	conmonPidFile := config.ConmonPidFile
-	if conmonPidFile == "" {
+	shimPidFile := config.ShimPidFile
+	if shimPidFile == "" {
 		return nil, errors.New("conmon PID file path is empty, try to recreate the container with --conmon-pidfile flag")
 	}
 
@@ -246,7 +246,7 @@ func generatePodInfo(pod *libpod.Pod, options entities.GenerateSystemdOptions) (
 	info := podInfo{
 		ServiceName:       serviceName,
 		InfraNameOrID:     ctrNameOrID,
-		PIDFile:           conmonPidFile,
+		PIDFile:           shimPidFile,
 		StopTimeout:       stopTimeout,
 		GenerateTimestamp: true,
 		CreateCommand:     createCommand,
