@@ -113,12 +113,14 @@ type OCIRuntime interface { //nolint:interfacebloat
 	// the given container.
 	CheckpointContainer(ctr *Container, options ContainerCheckpointOptions) (int64, error)
 
-	// CheckConmonRunning verifies that the given container's Conmon
-	// instance is still running. Runtimes without Conmon, or systems where
-	// the PID of conmon is not available, should mock this as True.
-	// True indicates that Conmon for the instance is running, False
+	// CheckShimRunning verifies that the given container's shim instance is
+	// still running (conmon or shimv2). Runtimes without a shim, or systems
+	// where the PID of conmon is not available, should mock this as True.
+	// The shim is typically conmon for command-line runtimes like runc,
+	// and shim-v2 process like containerd-shim-kata-v2 for Kata Containers.
+	// True indicates that the shim for the instance is running, False
 	// indicates it is not.
-	CheckConmonRunning(ctr *Container) (bool, error)
+	CheckShimRunning(ctr *Container) (bool, error)
 
 	// SupportsCheckpoint returns whether this OCI runtime
 	// implementation supports the CheckpointContainer() operation.
@@ -156,7 +158,7 @@ type OCIRuntime interface { //nolint:interfacebloat
 	OOMFilePath(ctr *Container) (string, error)
 
 	// RuntimeInfo returns verbose information about the runtime.
-	RuntimeInfo() (*define.ConmonInfo, *define.OCIRuntimeInfo, error)
+	RuntimeInfo() (*define.ShimInfo, *define.OCIRuntimeInfo, error)
 
 	// UpdateContainer updates the given container's cgroup configuration.
 	UpdateContainer(ctr *Container, res *specs.LinuxResources) error
