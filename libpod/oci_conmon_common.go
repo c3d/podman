@@ -799,7 +799,7 @@ func (r *ConmonOCIRuntime) CheckpointContainer(ctr *Container, options Container
 	return runtimeCheckpointDuration, err
 }
 
-func (r *ConmonOCIRuntime) CheckConmonRunning(ctr *Container) (bool, error) {
+func (r *ConmonOCIRuntime) CheckShimRunning(ctr *Container) (bool, error) {
 	if ctr.state.ShimPID == 0 {
 		// If the container is running or paused, assume Conmon is
 		// running. We didn't record Conmon PID on some old versions, so
@@ -872,7 +872,7 @@ func (r *ConmonOCIRuntime) OOMFilePath(ctr *Container) (string, error) {
 }
 
 // RuntimeInfo provides information on the runtime.
-func (r *ConmonOCIRuntime) RuntimeInfo() (*define.ConmonInfo, *define.OCIRuntimeInfo, error) {
+func (r *ConmonOCIRuntime) RuntimeInfo() (*define.ShimInfo, *define.OCIRuntimeInfo, error) {
 	runtimePackage := version.Package(r.path)
 	conmonPackage := version.Package(r.conmonPath)
 	runtimeVersion, err := r.getOCIRuntimeVersion()
@@ -884,7 +884,7 @@ func (r *ConmonOCIRuntime) RuntimeInfo() (*define.ConmonInfo, *define.OCIRuntime
 		return nil, nil, fmt.Errorf("getting conmon version: %w", err)
 	}
 
-	conmon := define.ConmonInfo{
+	conmon := define.ShimInfo{
 		Package: conmonPackage,
 		Path:    r.conmonPath,
 		Version: conmonVersion,

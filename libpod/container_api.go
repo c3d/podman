@@ -591,7 +591,7 @@ func (c *Container) WaitForExit(ctx context.Context, pollInterval time.Duration)
 		// If conmon is not alive anymore set a timer to make sure
 		// we're returning even if conmon has forcefully been killed.
 		if !conmonTimerSet && !containerRemoved {
-			conmonAlive, err := c.ociRuntime.CheckConmonRunning(c)
+			conmonAlive, err := c.ociRuntime.CheckShimRunning(c)
 			switch {
 			case errors.Is(err, define.ErrNoSuchCtr):
 				// Container has been removed, so we assume the
