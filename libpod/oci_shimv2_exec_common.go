@@ -393,8 +393,8 @@ func (r *ShimV2OCIRuntime) startExec(c *Container, sessionID string, options *Ex
 
 	logrus.WithFields(logrus.Fields{
 		"args": args,
-	}).Debugf("running shimV2: %s", r.shimV2Path)
-	execCmd := exec.Command(r.shimV2Path, args...)
+	}).Debugf("running shim V2 binary: %s", r.path)
+	execCmd := exec.Command(r.path, args...)
 
 	// TODO: This is commented because it doesn't make much sense in HTTP
 	// attach, and I'm not certain it does for non-HTTP attach as well.

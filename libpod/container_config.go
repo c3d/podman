@@ -379,7 +379,7 @@ type ContainerMiscConfig struct {
 	// LogDriver driver for logs
 	LogDriver string `json:"logDriver"`
 	// File containing the conmon PID
-	ConmonPidFile string `json:"conmonPidFile,omitempty"`
+	ShimPidFile string `json:"shimPidFile,omitempty"`
 	// RestartPolicy indicates what action the container will take upon
 	// exiting naturally.
 	// Allowed options are "no" (take no action), "on-failure" (restart on
