@@ -469,6 +469,14 @@ type EngineConfig struct {
 	// backwards compat with older version of libpod and Podman.
 	SetOptions
 
+	// ShimV2EnvVars are environment variables to pass to the ShimV2 binary
+	// when it is launched (e.g. Kata Containers runtime)
+	ShimV2EnvVars attributedstring.Slice `toml:"shimv2_env_vars,omitempty"`
+
+	// ShimV2Path is the path to the ShimV2 binary used for managing shim-v2
+	// containers. The first path pointing to a valid file will be used.
+	ShimV2Path attributedstring.Slice `toml:"shimv2_path,omitempty"`
+
 	// SignaturePolicyPath is the path to a signature policy to use for
 	// validating images. If left empty, the containers/image default signature
 	// policy will be used.
