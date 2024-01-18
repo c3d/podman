@@ -30,10 +30,10 @@ func TestMapSpecCopyPodSpecToInfraContainerSpec(t *testing.T) {
 	dnsOptions := []string{"dns option"}
 	dnsSearch := []string{"dns search"}
 	infraImage := "someimage"
-	conmonPidFile := "/var/run/conmon.pid"
+	shimPidFile := "/var/run/conmon.pid"
 	podSpec := specgen.PodSpecGenerator{
 		PodBasicConfig: specgen.PodBasicConfig{InfraCommand: infraCommand, InfraImage: infraImage,
-			InfraConmonPidFile: conmonPidFile},
+			InfraConmonPidFile: shimPidFile},
 		PodNetworkConfig: specgen.PodNetworkConfig{
 			PortMappings: portMappings, HostAdd: addedHosts, DNSServer: dnsServers, DNSOption: dnsOptions, DNSSearch: dnsSearch,
 			Networks: networks, NoManageResolvConf: true, NoManageHosts: true},
@@ -60,7 +60,7 @@ func TestMapSpecCopyPodSpecToInfraContainerSpec(t *testing.T) {
 	assert.Equal(t, networks, mappedSpec.Networks)
 	require.NotNil(t, mappedSpec.UseImageHosts)
 	assert.True(t, *mappedSpec.UseImageHosts)
-	assert.Equal(t, conmonPidFile, mappedSpec.ConmonPidFile)
+	assert.Equal(t, shimPidFile, mappedSpec.ConmonPidFile)
 	assert.Equal(t, infraImage, mappedSpec.Image)
 }
 
