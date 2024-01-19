@@ -4,22 +4,12 @@ package libpod
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
 	"net"
-	"os"
-	"path/filepath"
-	"syscall"
 
 	"github.com/containers/common/pkg/config"
-	"github.com/containers/common/pkg/detach"
-	"github.com/containers/common/pkg/resize"
-	"github.com/containers/podman/v4/libpod/define"
-	"github.com/containers/podman/v4/pkg/errorhandling"
-	"github.com/moby/term"
+	"github.com/containers/podman/v5/libpod/define"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sys/unix"
 )
 
 // Attach to the given container.
