@@ -85,6 +85,13 @@ func newShimV2OCIRuntime(name string, paths []string, runtimeFlags []string, run
 		supportsKVM[r] = true
 	}
 
+	// Turn foo.bar.stuff.kata.v2 into containerd-shim-kata-v2
+	if strings.Contains(name, ".v2") {
+		fields := strings.Split(name, ".")
+		lastTwo := fields[len(fields)-2:]
+		name = "containerd-shim-" + strings.Join(lastTwo, "-")
+	}
+
 	runtime := new(ShimV2OCIRuntime)
 	runtime.name = name
 	runtime.runtimeFlags = runtimeFlags
