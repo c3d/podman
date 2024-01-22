@@ -44,3 +44,4 @@ result
 # Necessary to prevent hack/tree-status.sh false-positive
 /*runner_stats.log
 .generate-bindings
+*.~[0-9]~
