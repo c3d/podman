@@ -485,8 +485,10 @@ func makeRuntime(ctx context.Context, runtime *Runtime) (retErr error) {
 	// Do we have a default OCI runtime?
 	if runtime.config.Engine.OCIRuntime != "" {
 		// If the string starts with / it's a path to a runtime
-		// executable.
-		if strings.HasPrefix(runtime.config.Engine.OCIRuntime, "/") {
+		// executable. If the string contains .v2, it's an URI-like name
+		// from which we can search a containerd-shim-<runtime>-v2
+		runtimeName := runtime.config.Engine.OCIRuntime
+		if strings.HasPrefix(runtimeName, "/") || isShimV2Runtime(runtimeName) {
 			ociRuntime, err := newOCIRuntime(runtime.config.Engine.OCIRuntime, []string{runtime.config.Engine.OCIRuntime}, runtime.conmonPath, runtime.runtimeFlags, runtime.config)
 			if err != nil {
 				return err

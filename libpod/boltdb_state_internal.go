@@ -514,6 +514,16 @@ func (s *BoltState) getContainerFromDB(id []byte, ctr *Container, ctrsBkt *bolt.
 				}
 			}
 
+			// If the path contains .v2, make a new (shimv2) runtime
+			if !runtimeSet &&  isShimV2Runtime(runtimeName) {
+				newRuntime, err := newShimV2OCIRuntime(runtimeName, []string{runtimeName}, s.runtime.runtimeFlags, s.runtime.config)
+				if err == nil {
+					ociRuntime = newRuntime
+					s.runtime.ociRuntimes[runtimeName] = ociRuntime
+					runtimeSet = true
+				}
+			}
+
 			if !runtimeSet {
 				// Use a MissingRuntime implementation
 				ociRuntime = getMissingRuntime(runtimeName, s.runtime)

@@ -29,12 +29,18 @@ func newOCIRuntime(name string, paths []string, conmonPath string, runtimeFlags 
 	if name == "" {
 		return nil, fmt.Errorf("the OCI runtime must be provided a non-empty name: %w", define.ErrInvalidArg)
 	}
-	if strings.Contains(name, "v2") {
+	logrus.Debugf("New OCI runtime named '%s'", name)
+	if isShimV2Runtime(name) {
 		return newShimV2OCIRuntime(name, paths, runtimeFlags, runtimeCfg)
 	}
 	return newConmonOCIRuntime(name, paths, conmonPath, runtimeFlags, runtimeCfg)
 }
 
+
+// Check if we have a shim v2 runtime
+func isShimV2Runtime(name string) bool {
+	return strings.HasSuffix(name, ".v2") || strings.HasSuffix(name, "-v2") || strings.Contains(name, "containerd-shim") || strings.Contains(name, "containerd.shim")
+}
 
 // hasCurrentUserMapped checks whether the current user is mapped inside the container user namespace
 func hasCurrentUserMapped(ctr *Container) bool {
