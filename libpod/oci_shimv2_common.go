@@ -34,6 +34,7 @@ import (
 	"github.com/containers/podman/v5/pkg/util"
 	"github.com/containers/podman/v5/utils"
 	spec "github.com/opencontainers/runtime-spec/specs-go"
+	//	shimV2 "github.com/containerd/containerd/runtime/v2"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
@@ -41,7 +42,6 @@ import (
 // ShimV2OCIRuntime is an OCI runtime managed through the shimV2 interface,
 // like Kata Containers.
 // See https://github.com/containerd/containerd/blob/main/runtime/v2/README.md
-
 type ShimV2OCIRuntime struct {
 	name              string
 	path              string
@@ -58,7 +58,6 @@ type ShimV2OCIRuntime struct {
 	supportsNoCgroups bool
 	enableKeyring     bool
 }
-
 
 
 // Make a new ShimV2-OCI runtime with the given options.
