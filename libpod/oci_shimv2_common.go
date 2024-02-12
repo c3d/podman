@@ -953,42 +953,20 @@ func (r *ShimV2OCIRuntime) createShimV2Task(ctr *Container, restoreOptions *Cont
 		pidfile = filepath.Join(ctr.state.RunDir, "pidfile")
 	}
 
-	args := r.sharedShimV2Args(ctr, ctr.ID(), ctr.bundlePath(), pidfile, ctr.LogPath(), r.exitsDir, ociLog, ctr.LogDriver(), logTag)
-
-	if ctr.config.SdNotifyMode == define.SdNotifyModeContainer && ctr.config.SdNotifySocket != "" {
-		args = append(args, fmt.Sprintf("--sdnotify-socket=%s", ctr.config.SdNotifySocket))
-	}
-
-	if ctr.Terminal() {
-		args = append(args, "-t")
-	} else if ctr.config.Stdin {
-		args = append(args, "-i")
-	}
-
-	if ctr.config.Timeout > 0 {
-		args = append(args, fmt.Sprintf("--timeout=%d", ctr.config.Timeout))
-	}
-
-	if !r.enableKeyring {
-		args = append(args, "--no-new-keyring")
-	}
-	if ctr.config.ShimPidFile != "" {
-		args = append(args, "--shimV2-pidfile", ctr.config.ShimPidFile)
-	}
-
-	if r.noPivot {
-		args = append(args, "--no-pivot")
-	}
-
-	exitCommand, err := specgenutil.CreateExitCommandArgs(ctr.runtime.storageConfig, ctr.runtime.config, ctr.runtime.syslog || logrus.IsLevelEnabled(logrus.DebugLevel), ctr.AutoRemove(), false)
+	ns := ctr.Namespace()
+	self, err := os.Executable()
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	exitCommand = append(exitCommand, ctr.config.ID)
 
-	args = append(args, "--exit-command", exitCommand[0])
-	for _, arg := range exitCommand[1:] {
-		args = append(args, []string{"--exit-command-arg", arg}...)
+	grpcAddress := filepath.Join(ctr.state.RunDir, "libpod.sock")
+	args := []string {
+		"-namespace", ns,
+		"-address", grpcAddress,
+		"-publish-binary", self,
+	}
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		args = append(args, "-debug")
 	}
 
 	preserveFDs := ctr.config.PreserveFDs
