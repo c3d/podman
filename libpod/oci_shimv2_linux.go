@@ -67,7 +67,7 @@ func (r *ShimV2OCIRuntime) createRootlessContainer(ctr *Container, restoreOption
 					return 0, fmt.Errorf("cannot unmount %s: %w", m.Mountpoint, err)
 				}
 			}
-			return r.createOCIContainer(ctr, restoreOptions)
+			return r.createShimV2Task(ctr, restoreOptions)
 		}()
 		ch <- result{
 			restoreDuration: restoreDuration,
