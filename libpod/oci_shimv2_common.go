@@ -183,7 +183,7 @@ func (r *ShimV2OCIRuntime) CreateContainer(ctr *Container, restoreOptions *Conta
 			return r.createRootlessContainer(ctr, restoreOptions)
 		}
 	}
-	return r.createOCIContainer(ctr, restoreOptions)
+	return r.createShimV2Task(ctr, restoreOptions)
 }
 
 // UpdateContainerStatus retrieves the current status of the container from the
@@ -915,8 +915,8 @@ func (r *ShimV2OCIRuntime) getLogTag(ctr *Container) (string, error) {
 	return b.String(), nil
 }
 
-// createOCIContainer generates this container's main shimV2 instance and prepares it for starting
-func (r *ShimV2OCIRuntime) createOCIContainer(ctr *Container, restoreOptions *ContainerCheckpointOptions) (int64, error) {
+// createShimV2Task generates this container's main shimV2 instance and prepares it for starting
+func (r *ShimV2OCIRuntime) createShimV2Task(ctr *Container, restoreOptions *ContainerCheckpointOptions) (int64, error) {
 	var stderrBuf bytes.Buffer
 
 	parentSyncPipe, childSyncPipe, err := newPipe()
