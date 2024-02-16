@@ -18,7 +18,6 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-	"text/template"
 	"time"
 
 	"github.com/containers/common/pkg/config"
@@ -898,28 +897,6 @@ func (r *ConmonOCIRuntime) RuntimeInfo() (*define.ShimInfo, *define.OCIRuntimeIn
 	return &conmon, &ocirt, nil
 }
 
-func (r *ConmonOCIRuntime) getLogTag(ctr *Container) (string, error) {
-	logTag := ctr.LogTag()
-	if logTag == "" {
-		return "", nil
-	}
-	data, err := ctr.inspectLocked(false)
-	if err != nil {
-		// FIXME: this error should probably be returned
-		return "", nil //nolint: nilerr
-	}
-	tmpl, err := template.New("container").Parse(logTag)
-	if err != nil {
-		return "", fmt.Errorf("template parsing error %s: %w", logTag, err)
-	}
-	var b bytes.Buffer
-	err = tmpl.Execute(&b, data)
-	if err != nil {
-		return "", err
-	}
-	return b.String(), nil
-}
-
 // createOCIContainer generates this container's main conmon instance and prepares it for starting
 func (r *ConmonOCIRuntime) createOCIContainer(ctr *Container, restoreOptions *ContainerCheckpointOptions) (int64, error) {
 	var stderrBuf bytes.Buffer
@@ -942,7 +919,7 @@ func (r *ConmonOCIRuntime) createOCIContainer(ctr *Container, restoreOptions *Co
 		ociLog = filepath.Join(ctr.state.RunDir, "oci-log")
 	}
 
-	logTag, err := r.getLogTag(ctr)
+	logTag, err := getLogTag(ctr)
 	if err != nil {
 		return 0, err
 	}
