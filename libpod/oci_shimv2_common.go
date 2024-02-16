@@ -18,7 +18,6 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-	"text/template"
 	"time"
 
 	"github.com/containers/common/pkg/config"
@@ -30,7 +29,6 @@ import (
 	"github.com/containers/podman/v5/pkg/checkpoint/crutils"
 	"github.com/containers/podman/v5/pkg/errorhandling"
 	"github.com/containers/podman/v5/pkg/rootless"
-	"github.com/containers/podman/v5/pkg/specgenutil"
 	"github.com/containers/podman/v5/pkg/util"
 	"github.com/containers/podman/v5/utils"
 	spec "github.com/opencontainers/runtime-spec/specs-go"
@@ -49,6 +47,7 @@ type ShimV2OCIRuntime struct {
 	shimV2Env         []string
 	tmpDir            string
 	exitsDir          string
+	logTag            string
 	logSizeMax        int64
 	noPivot           bool
 	reservePorts      bool
@@ -893,28 +892,6 @@ func (r *ShimV2OCIRuntime) RuntimeInfo() (*define.ShimInfo, *define.OCIRuntimeIn
 	return &shimV2, &ocirt, nil
 }
 
-func (r *ShimV2OCIRuntime) getLogTag(ctr *Container) (string, error) {
-	logTag := ctr.LogTag()
-	if logTag == "" {
-		return "", nil
-	}
-	data, err := ctr.inspectLocked(false)
-	if err != nil {
-		// FIXME: this error should probably be returned
-		return "", nil //nolint: nilerr
-	}
-	tmpl, err := template.New("container").Parse(logTag)
-	if err != nil {
-		return "", fmt.Errorf("template parsing error %s: %w", logTag, err)
-	}
-	var b bytes.Buffer
-	err = tmpl.Execute(&b, data)
-	if err != nil {
-		return "", err
-	}
-	return b.String(), nil
-}
-
 // createShimV2Task generates this container's main shimV2 instance and prepares it for starting
 func (r *ShimV2OCIRuntime) createShimV2Task(ctr *Container, restoreOptions *ContainerCheckpointOptions) (int64, error) {
 	var stderrBuf bytes.Buffer
@@ -937,10 +914,11 @@ func (r *ShimV2OCIRuntime) createShimV2Task(ctr *Container, restoreOptions *Cont
 		ociLog = filepath.Join(ctr.state.RunDir, "oci-log")
 	}
 
-	logTag, err := r.getLogTag(ctr)
+	logTag, err := getLogTag(ctr)
 	if err != nil {
 		return 0, err
 	}
+	r.logTag = logTag
 
 	if ctr.config.CgroupsMode == cgroupSplit {
 		if err := moveToRuntimeCgroup(); err != nil {
@@ -956,7 +934,7 @@ func (r *ShimV2OCIRuntime) createShimV2Task(ctr *Container, restoreOptions *Cont
 	ns := ctr.Namespace()
 	self, err := os.Executable()
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
 	grpcAddress := filepath.Join(ctr.state.RunDir, "libpod.sock")
