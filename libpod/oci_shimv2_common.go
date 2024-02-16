@@ -970,42 +970,9 @@ func (r *ShimV2OCIRuntime) createShimV2Task(ctr *Container, restoreOptions *Cont
 	if err != nil {
 		return 0, err
 	}
-	if preserveFDs > 0 {
-		args = append(args, formatRuntimeOpts("--preserve-fds", strconv.FormatUint(uint64(preserveFDs), 10))...)
-	}
 
 	if restoreOptions != nil {
-		args = append(args, "--restore", ctr.CheckpointPath())
-		if restoreOptions.TCPEstablished {
-			args = append(args, "--runtime-opt", "--tcp-established")
-		}
-		if restoreOptions.FileLocks {
-			args = append(args, "--runtime-opt", "--file-locks")
-		}
-		if restoreOptions.Pod != "" {
-			mountLabel := ctr.config.MountLabel
-			processLabel := ctr.config.ProcessLabel
-			if mountLabel != "" {
-				args = append(
-					args,
-					"--runtime-opt",
-					fmt.Sprintf(
-						"--lsm-mount-context=%s",
-						mountLabel,
-					),
-				)
-			}
-			if processLabel != "" {
-				args = append(
-					args,
-					"--runtime-opt",
-					fmt.Sprintf(
-						"--lsm-profile=selinux:%s",
-						processLabel,
-					),
-				)
-			}
-		}
+		logrus.Warnf("Restore options not supported for shimv2 runtime")
 	}
 
 	logrus.WithFields(logrus.Fields{
