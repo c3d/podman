@@ -4,6 +4,7 @@ package libpod
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"text/template"
 
 	"github.com/containers/common/pkg/config"
 	"github.com/containers/podman/v5/libpod/define"
@@ -347,4 +349,27 @@ func httpAttachNonTerminalCopy(container *net.UnixConn, http *bufio.ReadWriter, 
 			return err
 		}
 	}
+}
+
+
+func getLogTag(ctr *Container) (string, error) {
+	logTag := ctr.LogTag()
+	if logTag == "" {
+		return "", nil
+	}
+	data, err := ctr.inspectLocked(false)
+	if err != nil {
+		// FIXME: this error should probably be returned
+		return "", nil //nolint: nilerr
+	}
+	tmpl, err := template.New("container").Parse(logTag)
+	if err != nil {
+		return "", fmt.Errorf("template parsing error %s: %w", logTag, err)
+	}
+	var b bytes.Buffer
+	err = tmpl.Execute(&b, data)
+	if err != nil {
+		return "", err
+	}
+	return b.String(), nil
 }

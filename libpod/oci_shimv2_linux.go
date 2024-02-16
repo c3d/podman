@@ -21,10 +21,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const {
+const (
 	// DefaultAddressDir is the default location for the GRPC socket address
 	DefaultAddressDir = "/run/containers"
-}
+)
 
 func (r *ShimV2OCIRuntime) createRootlessContainer(ctr *Container, restoreOptions *ContainerCheckpointOptions) (int64, error) {
 	type result struct {
