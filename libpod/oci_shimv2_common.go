@@ -936,6 +936,10 @@ func (r *ShimV2OCIRuntime) createShimV2Task(ctr *Container, restoreOptions *Cont
 	if err != nil {
 		return 0, err
 	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return 0, err
+	}
 
 	grpcAddress := filepath.Join(ctr.state.RunDir, "libpod.sock")
 	args := []string {
@@ -1009,6 +1013,8 @@ func (r *ShimV2OCIRuntime) createShimV2Task(ctr *Container, restoreOptions *Cont
 	}).Debugf("running shim V2 binary: %s", r.path)
 
 	cmd := exec.Command(r.path, args...)
+	cmd.Dir = cwd
+	cmd.Env = append(os.Environ(), "GOMAXPROCS=4")
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
 	}
