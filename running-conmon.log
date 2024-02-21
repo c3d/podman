@@ -1,0 +1,107 @@
+time="2024-02-16T15:15:49+01:00" level=info msg="bin/podman filtering at log level debug"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Called run.PersistentPreRunE(bin/podman --log-level=debug run -it fedora bash)"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Using conmon: \"/usr/bin/conmon\""
+time="2024-02-16T15:15:49+01:00" level=info msg="Using boltdb as database backend"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Initializing boltdb state at /home/ddd/.local/share/containers/storage/libpod/bolt_state.db"
+time="2024-02-16T15:15:49+01:00" level=debug msg="systemd-logind: Unknown object '/'."
+time="2024-02-16T15:15:49+01:00" level=debug msg="Using graph driver overlay"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Using graph root /home/ddd/.local/share/containers/storage"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Using run root /tmp/1026"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Using static dir /home/ddd/.local/share/containers/storage/libpod"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Using tmp dir /run/user/1026/libpod/tmp"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Using volume path /home/ddd/.local/share/containers/storage/volumes"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Using transient store: false"
+time="2024-02-16T15:15:49+01:00" level=debug msg="[graphdriver] trying provided driver \"overlay\""
+time="2024-02-16T15:15:49+01:00" level=debug msg="overlay: mount_program=/usr/bin/fuse-overlayfs"
+time="2024-02-16T15:15:49+01:00" level=debug msg="overlay: mount_program=/usr/bin/fuse-overlayfs"
+time="2024-02-16T15:15:49+01:00" level=debug msg="backingFs=btrfs, projectQuotaSupported=false, useNativeDiff=false, usingMetacopy=false"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Initializing event backend journald"
+time="2024-02-16T15:15:49+01:00" level=debug msg="New OCI runtime named 'runsc'"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Configured OCI runtime runsc initialization failed: no valid executable found for OCI runtime runsc: invalid argument"
+time="2024-02-16T15:15:49+01:00" level=debug msg="New OCI runtime named 'youki'"
+time="2024-02-16T15:15:49+01:00" level=debug msg="New OCI runtime named 'krun'"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Configured OCI runtime krun initialization failed: no valid executable found for OCI runtime krun: invalid argument"
+time="2024-02-16T15:15:49+01:00" level=debug msg="New OCI runtime named 'ocijail'"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Configured OCI runtime ocijail initialization failed: no valid executable found for OCI runtime ocijail: invalid argument"
+time="2024-02-16T15:15:49+01:00" level=debug msg="New OCI runtime named 'crun-vm'"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Configured OCI runtime crun-vm initialization failed: no valid executable found for OCI runtime crun-vm: invalid argument"
+time="2024-02-16T15:15:49+01:00" level=debug msg="New OCI runtime named 'crun-wasm'"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Configured OCI runtime crun-wasm initialization failed: no valid executable found for OCI runtime crun-wasm: invalid argument"
+time="2024-02-16T15:15:49+01:00" level=debug msg="New OCI runtime named 'runc'"
+time="2024-02-16T15:15:49+01:00" level=debug msg="New OCI runtime named 'kata'"
+time="2024-02-16T15:15:49+01:00" level=debug msg="New OCI runtime named 'crun'"
+time="2024-02-16T15:15:49+01:00" level=debug msg="New OCI runtime named 'runj'"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Configured OCI runtime runj initialization failed: no valid executable found for OCI runtime runj: invalid argument"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Using OCI runtime \"/usr/bin/crun\""
+time="2024-02-16T15:15:49+01:00" level=info msg="Setting parallel job count to 37"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Pulling image fedora (policy: missing)"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Looking up image \"fedora\" in local containers storage"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Normalized platform linux/amd64 to {amd64 linux  [] }"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Loading registries configuration \"/etc/containers/registries.conf\""
+time="2024-02-16T15:15:49+01:00" level=debug msg="Loading registries configuration \"/etc/containers/registries.conf.d/000-shortnames.conf\""
+time="2024-02-16T15:15:49+01:00" level=debug msg="Trying \"registry.fedoraproject.org/fedora:latest\" ..."
+time="2024-02-16T15:15:49+01:00" level=debug msg="parsed reference into \"[overlay@/home/ddd/.local/share/containers/storage+/tmp/1026:overlay.mount_program=/usr/bin/fuse-overlayfs,overlay.mount_program=/usr/bin/fuse-overlayfs]@9f2a56037643a68ea81711a8eeb4501428eefd40b000c866ad9745a581c0464d\""
+time="2024-02-16T15:15:49+01:00" level=debug msg="Found image \"fedora\" as \"registry.fedoraproject.org/fedora:latest\" in local containers storage"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Found image \"fedora\" as \"registry.fedoraproject.org/fedora:latest\" in local containers storage ([overlay@/home/ddd/.local/share/containers/storage+/tmp/1026:overlay.mount_program=/usr/bin/fuse-overlayfs,overlay.mount_program=/usr/bin/fuse-overlayfs]@9f2a56037643a68ea81711a8eeb4501428eefd40b000c866ad9745a581c0464d)"
+time="2024-02-16T15:15:49+01:00" level=debug msg="exporting opaque data as blob \"sha256:9f2a56037643a68ea81711a8eeb4501428eefd40b000c866ad9745a581c0464d\""
+time="2024-02-16T15:15:49+01:00" level=debug msg="Looking up image \"registry.fedoraproject.org/fedora:latest\" in local containers storage"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Normalized platform linux/amd64 to {amd64 linux  [] }"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Trying \"registry.fedoraproject.org/fedora:latest\" ..."
+time="2024-02-16T15:15:49+01:00" level=debug msg="parsed reference into \"[overlay@/home/ddd/.local/share/containers/storage+/tmp/1026:overlay.mount_program=/usr/bin/fuse-overlayfs,overlay.mount_program=/usr/bin/fuse-overlayfs]@9f2a56037643a68ea81711a8eeb4501428eefd40b000c866ad9745a581c0464d\""
+time="2024-02-16T15:15:49+01:00" level=debug msg="Found image \"registry.fedoraproject.org/fedora:latest\" as \"registry.fedoraproject.org/fedora:latest\" in local containers storage"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Found image \"registry.fedoraproject.org/fedora:latest\" as \"registry.fedoraproject.org/fedora:latest\" in local containers storage ([overlay@/home/ddd/.local/share/containers/storage+/tmp/1026:overlay.mount_program=/usr/bin/fuse-overlayfs,overlay.mount_program=/usr/bin/fuse-overlayfs]@9f2a56037643a68ea81711a8eeb4501428eefd40b000c866ad9745a581c0464d)"
+time="2024-02-16T15:15:49+01:00" level=debug msg="exporting opaque data as blob \"sha256:9f2a56037643a68ea81711a8eeb4501428eefd40b000c866ad9745a581c0464d\""
+time="2024-02-16T15:15:49+01:00" level=debug msg="Looking up image \"fedora\" in local containers storage"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Normalized platform linux/amd64 to {amd64 linux  [] }"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Trying \"registry.fedoraproject.org/fedora:latest\" ..."
+time="2024-02-16T15:15:49+01:00" level=debug msg="parsed reference into \"[overlay@/home/ddd/.local/share/containers/storage+/tmp/1026:overlay.mount_program=/usr/bin/fuse-overlayfs,overlay.mount_program=/usr/bin/fuse-overlayfs]@9f2a56037643a68ea81711a8eeb4501428eefd40b000c866ad9745a581c0464d\""
+time="2024-02-16T15:15:49+01:00" level=debug msg="Found image \"fedora\" as \"registry.fedoraproject.org/fedora:latest\" in local containers storage"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Found image \"fedora\" as \"registry.fedoraproject.org/fedora:latest\" in local containers storage ([overlay@/home/ddd/.local/share/containers/storage+/tmp/1026:overlay.mount_program=/usr/bin/fuse-overlayfs,overlay.mount_program=/usr/bin/fuse-overlayfs]@9f2a56037643a68ea81711a8eeb4501428eefd40b000c866ad9745a581c0464d)"
+time="2024-02-16T15:15:49+01:00" level=debug msg="exporting opaque data as blob \"sha256:9f2a56037643a68ea81711a8eeb4501428eefd40b000c866ad9745a581c0464d\""
+time="2024-02-16T15:15:49+01:00" level=debug msg="Inspecting image 9f2a56037643a68ea81711a8eeb4501428eefd40b000c866ad9745a581c0464d"
+time="2024-02-16T15:15:49+01:00" level=debug msg="exporting opaque data as blob \"sha256:9f2a56037643a68ea81711a8eeb4501428eefd40b000c866ad9745a581c0464d\""
+time="2024-02-16T15:15:49+01:00" level=debug msg="exporting opaque data as blob \"sha256:9f2a56037643a68ea81711a8eeb4501428eefd40b000c866ad9745a581c0464d\""
+time="2024-02-16T15:15:49+01:00" level=debug msg="Inspecting image 9f2a56037643a68ea81711a8eeb4501428eefd40b000c866ad9745a581c0464d"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Inspecting image 9f2a56037643a68ea81711a8eeb4501428eefd40b000c866ad9745a581c0464d"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Inspecting image 9f2a56037643a68ea81711a8eeb4501428eefd40b000c866ad9745a581c0464d"
+time="2024-02-16T15:15:49+01:00" level=debug msg="using systemd mode: false"
+time="2024-02-16T15:15:49+01:00" level=debug msg="No hostname set; container's hostname will default to runtime default"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Loading seccomp profile from \"/usr/share/containers/seccomp.json\""
+time="2024-02-16T15:15:49+01:00" level=debug msg="Allocated lock 30 for container 40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855"
+time="2024-02-16T15:15:49+01:00" level=debug msg="exporting opaque data as blob \"sha256:9f2a56037643a68ea81711a8eeb4501428eefd40b000c866ad9745a581c0464d\""
+time="2024-02-16T15:15:49+01:00" level=debug msg="Created container \"40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855\""
+time="2024-02-16T15:15:49+01:00" level=debug msg="Container \"40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855\" has work directory \"/home/ddd/.local/share/containers/storage/overlay-containers/40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855/userdata\""
+time="2024-02-16T15:15:49+01:00" level=debug msg="Container \"40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855\" has run directory \"/tmp/1026/overlay-containers/40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855/userdata\""
+time="2024-02-16T15:15:49+01:00" level=debug msg="Handling terminal attach"
+time="2024-02-16T15:15:49+01:00" level=info msg="Received shutdown.Stop(), terminating!" PID=388023
+time="2024-02-16T15:15:49+01:00" level=debug msg="Enabling signal proxying"
+time="2024-02-16T15:15:49+01:00" level=debug msg="overlay: mount_data=lowerdir=/home/ddd/.local/share/containers/storage/overlay/l/JOI4QL5JD3CAR3EHYHPVH3LEBR,upperdir=/home/ddd/.local/share/containers/storage/overlay/b03f216b5bf7e570f75dea871e5fd42e40c50d8b6fd4266ee0074220cd4d7e3e/diff,workdir=/home/ddd/.local/share/containers/storage/overlay/b03f216b5bf7e570f75dea871e5fd42e40c50d8b6fd4266ee0074220cd4d7e3e/work,context=\"system_u:object_r:container_file_t:s0:c83,c539\""
+time="2024-02-16T15:15:49+01:00" level=debug msg="Made network namespace at /run/user/1026/netns/netns-06a18ece-51cc-71ba-b7f9-21f1abf77f6d for container 40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855"
+time="2024-02-16T15:15:49+01:00" level=debug msg="slirp4netns command: /usr/bin/slirp4netns --disable-host-loopback --mtu=65520 --enable-sandbox --enable-seccomp --enable-ipv6 -c -r 3 -e 4 --netns-type=path /run/user/1026/netns/netns-06a18ece-51cc-71ba-b7f9-21f1abf77f6d tap0"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Mounted container \"40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855\" at \"/home/ddd/.local/share/containers/storage/overlay/b03f216b5bf7e570f75dea871e5fd42e40c50d8b6fd4266ee0074220cd4d7e3e/merged\""
+time="2024-02-16T15:15:49+01:00" level=debug msg="Created root filesystem for container 40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855 at /home/ddd/.local/share/containers/storage/overlay/b03f216b5bf7e570f75dea871e5fd42e40c50d8b6fd4266ee0074220cd4d7e3e/merged"
+time="2024-02-16T15:15:49+01:00" level=debug msg="/etc/system-fips does not exist on host, not mounting FIPS mode subscription"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Setting Cgroups for container 40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855 to user.slice:libpod:40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855"
+time="2024-02-16T15:15:49+01:00" level=debug msg="reading hooks from /usr/share/containers/oci/hooks.d"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Workdir \"/\" resolved to host path \"/home/ddd/.local/share/containers/storage/overlay/b03f216b5bf7e570f75dea871e5fd42e40c50d8b6fd4266ee0074220cd4d7e3e/merged\""
+time="2024-02-16T15:15:49+01:00" level=debug msg="Created OCI spec for container 40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855 at /home/ddd/.local/share/containers/storage/overlay-containers/40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855/userdata/config.json"
+time="2024-02-16T15:15:49+01:00" level=debug msg="/usr/bin/conmon messages will be logged to syslog"
+time="2024-02-16T15:15:49+01:00" level=debug msg="running conmon: /usr/bin/conmon" args="[--api-version 1 -c 40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855 -u 40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855 -r /usr/bin/crun -b /home/ddd/.local/share/containers/storage/overlay-containers/40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855/userdata -p /tmp/1026/overlay-containers/40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855/userdata/pidfile -n agitated_khayyam --exit-dir /run/user/1026/libpod/tmp/exits --full-attach -s -l journald --log-level debug --syslog -t --conmon-pidfile /tmp/1026/overlay-containers/40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855/userdata/conmon.pid --exit-command /home/ddd/Work/ociplex/containers/podman/bin/podman --exit-command-arg --root --exit-command-arg /home/ddd/.local/share/containers/storage --exit-command-arg --runroot --exit-command-arg /tmp/1026 --exit-command-arg --log-level --exit-command-arg debug --exit-command-arg --cgroup-manager --exit-command-arg systemd --exit-command-arg --tmpdir --exit-command-arg /run/user/1026/libpod/tmp --exit-command-arg --network-config-dir --exit-command-arg  --exit-command-arg --network-backend --exit-command-arg netavark --exit-command-arg --volumepath --exit-command-arg /home/ddd/.local/share/containers/storage/volumes --exit-command-arg --db-backend --exit-command-arg boltdb --exit-command-arg --transient-store=false --exit-command-arg --runtime --exit-command-arg crun --exit-command-arg --storage-driver --exit-command-arg overlay --exit-command-arg --storage-opt --exit-command-arg overlay.mount_program=/usr/bin/fuse-overlayfs --exit-command-arg --storage-opt --exit-command-arg overlay.mount_program=/usr/bin/fuse-overlayfs --exit-command-arg --events-backend --exit-command-arg journald --exit-command-arg --syslog --exit-command-arg container --exit-command-arg cleanup --exit-command-arg 40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855]"
+time="2024-02-16T15:15:49+01:00" level=info msg="Running conmon under slice user.slice and unitName libpod-conmon-40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855.scope"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Received: 388054"
+time="2024-02-16T15:15:49+01:00" level=info msg="Got Conmon PID as 388052"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Created container 40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855 in OCI runtime"
+time="2024-02-16T15:15:49+01:00" level=debug msg="found local resolver, using \"/run/systemd/resolve/resolv.conf\" to get the nameservers"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Attaching to container 40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Starting container 40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855 with command [bash]"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Received a resize event: {Width:303 Height:100}"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Started container 40dc0f49d21fcd0486e81ee23eb45ea2280b3ef346500259d609ba2cff739855"
+time="2024-02-16T15:15:49+01:00" level=debug msg="Notify sent successfully"
+]0;@40dc0f49d21f:/[root@40dc0f49d21f /]# exit
+exit
+time="2024-02-16T15:15:51+01:00" level=debug msg="Called run.PersistentPostRunE(bin/podman --log-level=debug run -it fedora bash)"
+time="2024-02-16T15:15:51+01:00" level=debug msg="Shutting down engines"
+time="2024-02-16T15:15:51+01:00" level=debug msg="[graphdriver] trying provided driver \"overlay\""
+time="2024-02-16T15:15:51+01:00" level=debug msg="overlay: mount_program=/usr/bin/fuse-overlayfs"
+time="2024-02-16T15:15:51+01:00" level=debug msg="overlay: mount_program=/usr/bin/fuse-overlayfs"
+time="2024-02-16T15:15:51+01:00" level=debug msg="backingFs=btrfs, projectQuotaSupported=false, useNativeDiff=false, usingMetacopy=false"
