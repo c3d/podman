@@ -182,7 +182,7 @@ func (r *ShimV2OCIRuntime) CreateContainer(ctr *Container, restoreOptions *Conta
 			return r.createRootlessContainer(ctr, restoreOptions)
 		}
 	}
-	return r.createShimV2Task(ctr, restoreOptions)
+	return r.startShimV2(ctr, restoreOptions)
 }
 
 // UpdateContainerStatus retrieves the current status of the container from the
@@ -892,23 +892,18 @@ func (r *ShimV2OCIRuntime) RuntimeInfo() (*define.ShimInfo, *define.OCIRuntimeIn
 	return &shimV2, &ocirt, nil
 }
 
-// createShimV2Task generates this container's main shimV2 instance and prepares it for starting
-func (r *ShimV2OCIRuntime) createShimV2Task(ctr *Container, restoreOptions *ContainerCheckpointOptions) (int64, error) {
-	var stderrBuf bytes.Buffer
+// start RPC server and return its address
+func (r *ShimV2OCIRuntime) startServer(ctr *Container) (string, string) {
+	pid := os.Getpid()
+	sockfile := "libpod-" + strconv.FormatInt(int64(pid),10) + ".sock"
+	grpcAddress := filepath.Join(ctr.state.RunDir, sockfile)
+	ttrpcAddress := grpcAddress + ".ttrpc"
+	return grpcAddress, ttrpcAddress
+}
 
-	parentSyncPipe, childSyncPipe, err := newPipe()
-	if err != nil {
-		return 0, fmt.Errorf("creating socket pair: %w", err)
-	}
-	defer errorhandling.CloseQuiet(parentSyncPipe)
 
-	childStartPipe, parentStartPipe, err := newPipe()
-	if err != nil {
-		return 0, fmt.Errorf("creating socket pair for start pipe: %w", err)
-	}
-
-	defer errorhandling.CloseQuiet(parentStartPipe)
-
+// startShimV2 generates this container's main shimV2 instance and prepares it for starting
+func (r *ShimV2OCIRuntime) startShimV2(ctr *Container, restoreOptions *ContainerCheckpointOptions) (int, error) {
 	var ociLog string
 	if logrus.GetLevel() != logrus.DebugLevel && r.supportsJSON {
 		ociLog = filepath.Join(ctr.state.RunDir, "oci-log")
@@ -941,7 +936,7 @@ func (r *ShimV2OCIRuntime) createShimV2Task(ctr *Container, restoreOptions *Cont
 		return 0, err
 	}
 
-	grpcAddress := filepath.Join(ctr.state.RunDir, "libpod.sock")
+	grpcAddress, ttrpcAddress := r.startServer(ctr)
 	args := []string {
 		"-namespace", ns,
 		"-address", grpcAddress,
@@ -981,18 +976,12 @@ func (r *ShimV2OCIRuntime) createShimV2Task(ctr *Container, restoreOptions *Cont
 
 	cmd := exec.Command(r.path, args...)
 	cmd.Dir = cwd
-	cmd.Env = append(os.Environ(), "GOMAXPROCS=4")
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
 	}
-	// TODO this is probably a really bad idea for some uses
-	// Make this configurable
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if ctr.Terminal() {
-		cmd.Stderr = &stderrBuf
-	}
+}
+
+func (r *ShimV2OCIRuntime) startContainer(ctr *Container, restoreOptions *ContainerCheckpointOptions) (int64, error) {
 
 	// 0, 1 and 2 are stdin, stdout and stderr
 	shimV2Env, err := r.configureShimV2Env()
