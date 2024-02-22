@@ -859,6 +859,12 @@ func (r *ShimV2OCIRuntime) ExitFilePath(ctr *Container) (string, error) {
 	return filepath.Join(r.exitsDir, ctr.ID()), nil
 }
 
+// OOMFilePath is the path to a container's oom file.
+// The oom file will only exist if the container was oom killed.
+func (r *ShimV2OCIRuntime) OOMFilePath(ctr *Container) (string, error) {
+	return filepath.Join(r.tmpDir, "persist", ctr.ID(), "oom-nonexistent-for-shimv2"), nil
+}
+
 // RuntimeInfo provides information on the runtime.
 func (r *ShimV2OCIRuntime) RuntimeInfo() (*define.ShimInfo, *define.OCIRuntimeInfo, error) {
 	runtimePackage := version.Package(r.path)
