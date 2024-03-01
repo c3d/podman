@@ -31,3 +31,8 @@ func (r *ShimV2OCIRuntime) moveShimV2ToCgroupAndSignal(ctr *Container, cmd *exec
 func moveToRuntimeCgroup() error {
 	return errors.New("moveToRuntimeCgroup not supported on freebsd")
 }
+
+
+func newTTRPCServer() (*ttrpc.Server, error) {
+	return ttrpc.NewServer()
+}

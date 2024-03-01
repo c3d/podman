@@ -892,19 +892,40 @@ func (r *ShimV2OCIRuntime) RuntimeInfo() (*define.ShimInfo, *define.OCIRuntimeIn
 	return &shimV2, &ocirt, nil
 }
 
+
+func server() error {
+	defer s.Close()
+	libpod.RegisterExampleService(s, &podmanServer{})
+
+	l, err := net.Listen("unix", socket)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		l.Close()
+		os.Remove(socket)
+	}()
+	return s.Serve(context.Background(), l)
+}
+
 // start RPC server and return its address
-func (r *ShimV2OCIRuntime) startServer(ctr *Container) (string, string) {
+func (r *ShimV2OCIRuntime) startServer(ctr *Container) (string, string, error) {
 	pid := os.Getpid()
 	sockfile := "libpod-" + strconv.FormatInt(int64(pid),10) + ".sock"
 	grpcAddress := filepath.Join(ctr.state.RunDir, sockfile)
 	ttrpcAddress := grpcAddress + ".ttrpc"
-	return grpcAddress, ttrpcAddress
+	ttrpcServer, err := newTTRPCServer()
+	if err != nil {
+		return "", "", err
+	}
+
+
+	return grpcAddress, ttrpcAddress, nil
 }
 
 
 // startShimV2 generates this container's main shimV2 instance and prepares it for starting
 func (r *ShimV2OCIRuntime) startShimV2(ctr *Container, restoreOptions *ContainerCheckpointOptions) (int, error) {
-	var ociLog string
 	if logrus.GetLevel() != logrus.DebugLevel && r.supportsJSON {
 		ociLog = filepath.Join(ctr.state.RunDir, "oci-log")
 	}

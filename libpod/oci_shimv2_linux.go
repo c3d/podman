@@ -16,6 +16,7 @@ import (
 	"github.com/containers/podman/v5/pkg/errorhandling"
 	"github.com/containers/podman/v5/pkg/rootless"
 	pmount "github.com/containers/storage/pkg/mount"
+	"github.com/containerd/ttrpc"
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
@@ -166,4 +167,9 @@ func (r *ShimV2OCIRuntime) moveShimV2ToCgroupAndSignal(ctr *Container, cmd *exec
 
 	/* We set the cgroup, now the child can start creating children */
 	return writeShimPipeData(startFd)
+}
+
+
+func newTTRPCServer() (*ttrpc.Server, error) {
+	return ttrpc.NewServer(ttrpc.WithServerHandshaker(ttrpc.UnixSocketRequireSameUser()))
 }
