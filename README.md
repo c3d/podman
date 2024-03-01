@@ -1,5 +1,16 @@
 ![PODMAN logo](https://raw.githubusercontent.com/containers/common/main/logos/podman-logo-full-vert.png)
 
+# Kata compatibility (ShimV2) development
+
+This repository contains work on bringing ShimV2 compatibility to Podman.
+
+The `stable` branch contains code that actually compiles and runs.
+
+All other branches are experiments and code in progress. They are not to be used for anything,
+
+All commits beginning with "DDD:" in any branch are things that I expect to remove, e.g. debugging code.
+
+
 # Podman: A tool for managing OCI containers and pods
 ![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
 ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/containers/podman)
