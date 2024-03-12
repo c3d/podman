@@ -53,7 +53,18 @@ func init() {
 	})
 }
 
-func NewManager(name string) shim.Manager {
+type ManagerConfig struct {
+	Root         string
+	State        string
+	Store        containers.Store
+	Events       *exchange.Exchange
+	Address      string
+	TTRPCAddress string
+	SchedCore    bool
+	SandboxStore sandbox.Store
+}
+
+func NewShimManager(ctx context.Context, config *ManagerConfig) )(*shim.Manager {
 	return manager{name: name}
 }
 
